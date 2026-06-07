@@ -44,12 +44,15 @@ jobs:
       - name: Build Release APK
         run: cd android && ./gradlew assembleRelease --no-daemon
 
+      - name: Rename APK
+        run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/健身紀錄-v1.0.${{ github.run_number }}.apk
+
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: "健身紀錄 v1.0.${{ github.run_number }}"
           body: |
-            🏋️ 自動建置 #${{ github.run_number }}
+            🏋️ 手動建置 #${{ github.run_number }}
             提交：${{ github.sha }}
-          files: android/app/build/outputs/apk/release/app-release.apk
+          files: android/app/build/outputs/apk/release/健身紀錄-v1.0.${{ github.run_number }}.apk
