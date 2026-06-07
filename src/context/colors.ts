@@ -1,0 +1,16 @@
+export const Colors = {
+  bg: '#0C0E14',
+  card: '#14171F',
+  card2: '#1B1F2B',
+  card3: '#22273A',
+  accent: '#F97316',
+  accentDim: 'rgba(249,115,22,0.13)',
+  green: '#22D3A4',
+  greenDim: 'rgba(34,211,164,0.12)',
+  red: '#F87171',
+  text: '#E2E8F0',
+  text2: '#8892A4',
+  text3: '#4A5568',
+  border: 'rgba(255,255,255,0.07)',
+  white: '#FFFFFF',
+} as const;
