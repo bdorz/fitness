@@ -15,6 +15,12 @@ export interface WorkoutCategory {
   createdAt: string;
 }
 
+export interface BodyRecord {
+  date: string;
+  weight: number;
+  waist: number | null;
+}
+
 export type RootStackParamList = {
   MainTabs: undefined;
   Exercises: { categoryId: string };
@@ -22,5 +28,7 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   Workouts: undefined;
+  BodyRecords: undefined;
   Converter: undefined;
+  Settings: undefined;
 };

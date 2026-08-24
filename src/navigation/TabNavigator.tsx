@@ -3,6 +3,8 @@ import {Text} from 'react-native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import WorkoutsScreen from '../screens/WorkoutsScreen';
 import ConverterScreen from '../screens/ConverterScreen';
+import BodyRecordsScreen from '../screens/BodyRecordsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import {TabParamList} from '../types';
 import {Colors} from '../context/colors';
 
@@ -31,8 +33,16 @@ export default function TabNavigator() {
         options={{
           tabBarLabel: '訓練',
           tabBarIcon: ({color}) => (
-            <Text style={{fontSize: 22, color}}>🏋️</Text>
+            <Text style={{fontSize: 22, lineHeight: 26, color, textAlign: 'center'}}>🏋️</Text>
           ),
+        }}
+      />
+      <Tab.Screen
+        name="BodyRecords"
+        component={BodyRecordsScreen}
+        options={{
+          tabBarLabel: '身體',
+          tabBarIcon: ({color}) => <Text style={{fontSize: 21, lineHeight: 25, color}}>📈</Text>,
         }}
       />
       <Tab.Screen
@@ -43,6 +53,14 @@ export default function TabNavigator() {
           tabBarIcon: ({color}) => (
             <Text style={{fontSize: 22, color}}>⚖️</Text>
           ),
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: '設定',
+          tabBarIcon: ({color}) => <Text style={{fontSize: 21, lineHeight: 25, color}}>⚙️</Text>,
         }}
       />
     </Tab.Navigator>

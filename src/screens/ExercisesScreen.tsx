@@ -65,7 +65,11 @@ export default function ExercisesScreen() {
     setCategory(found);
   }, [categoryId]);
 
-  useFocusEffect(loadData);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   // ── Category ────────────────────────────────────────────────────────
   function openEditCat() {
