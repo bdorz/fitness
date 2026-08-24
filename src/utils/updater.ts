@@ -3,7 +3,7 @@ import {Alert, Platform} from 'react-native';
 
 export const GITHUB_OWNER = 'bdorz';
 export const GITHUB_REPO = 'fitness';
-export const CURRENT_VERSION = '1.0.1';
+export const CURRENT_VERSION = '1.0.2';
 
 export interface GithubRelease {
   tag_name: string;
@@ -33,14 +33,38 @@ export function hasNewVersion(latestTag: string): boolean {
 }
 
 export async function fetchLatestRelease(): Promise<GithubRelease> {
-  const response = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
-    {headers: {Accept: 'application/vnd.github+json'}},
+  const baseUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
+  const requestOptions = {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'Cache-Control': 'no-cache, no-store',
+    },
+    cache: 'no-store' as const,
+  };
+  const cacheBuster = Date.now();
+  const latestResponse = await fetch(
+    `${baseUrl}/releases/latest?ts=${cacheBuster}`,
+    requestOptions,
   );
-  if (!response.ok) {
-    throw new Error(`GitHub API 錯誤：${response.status}`);
+  if (latestResponse.ok) {
+    return latestResponse.json();
   }
-  return response.json();
+
+  // 部分裝置可能保留 repository 尚未公開時的 404，改用列表端點重試。
+  const listResponse = await fetch(
+    `${baseUrl}/releases?per_page=1&ts=${cacheBuster}`,
+    requestOptions,
+  );
+  if (!listResponse.ok) {
+    throw new Error(
+      `GitHub API 錯誤：${latestResponse.status}/${listResponse.status}`,
+    );
+  }
+  const releases: GithubRelease[] = await listResponse.json();
+  if (!releases.length) {
+    throw new Error('GitHub 尚未發布任何版本');
+  }
+  return releases[0];
 }
 
 export async function downloadAndInstallApk(
