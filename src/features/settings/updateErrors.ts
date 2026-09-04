@@ -10,6 +10,8 @@ export type UpdateErrorCode =
   | 'UPD-203'
   | 'UPD-204'
   | 'UPD-205'
+  | 'UPD-206'
+  | 'UPD-207'
   | 'UPD-301'
   | 'UPD-999';
 
@@ -80,6 +82,16 @@ const ERROR_DEFINITIONS: Record<UpdateErrorCode, ErrorDefinition> = {
     message: 'APP 無法在手機快取空間建立或整理 APK。',
     suggestion: '請釋放手機空間、清除 APP 快取後再試。',
   },
+  'UPD-206': {
+    title: '系統下載失敗',
+    message: 'Android 系統下載管理員無法完成 APK 下載。',
+    suggestion: '請查看系統下載通知，確認網路、下載管理員及剩餘空間後重試。',
+  },
+  'UPD-207': {
+    title: '缺少儲存權限',
+    message: 'Android 未允許 APP 儲存更新檔。',
+    suggestion: '請在系統設定允許儲存空間權限後重試。',
+  },
   'UPD-301': {
     title: '無法開啟安裝程式',
     message: 'APK 已下載，但 Android 無法開啟安裝畫面。',
@@ -115,6 +127,24 @@ export function technicalMessage(error: unknown): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 180);
+}
+
+export function classifyDownloadError(error: unknown): AppUpdateError {
+  if (error instanceof AppUpdateError) {
+    return error;
+  }
+
+  const message = technicalMessage(error);
+  if (/download manager/i.test(message)) {
+    return new AppUpdateError('UPD-206', message);
+  }
+  if (/permission|denied|EACCES/i.test(message)) {
+    return new AppUpdateError('UPD-207', message);
+  }
+  if (/space|storage|write|file|directory|ENOSPC/i.test(message)) {
+    return new AppUpdateError('UPD-205', message);
+  }
+  return new AppUpdateError('UPD-202', message);
 }
 
 export function describeUpdateError(error: unknown): UpdateErrorDetails {

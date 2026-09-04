@@ -2,7 +2,7 @@ import { AppUpdateError, technicalMessage } from './updateErrors';
 
 export const GITHUB_OWNER = 'bdorz';
 export const GITHUB_REPO = 'fitness';
-export const CURRENT_VERSION = '1.0.4';
+export const CURRENT_VERSION = '1.0.5';
 
 export interface GithubReleaseAsset {
   name: string;

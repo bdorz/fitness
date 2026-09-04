@@ -1,5 +1,6 @@
 import {
   AppUpdateError,
+  classifyDownloadError,
   describeUpdateError,
   technicalMessage,
 } from '../src/features/settings/updateErrors';
@@ -7,7 +8,8 @@ import { hasNewVersion } from '../src/features/settings/updateService';
 
 describe('APP updater', () => {
   it('compares semantic version components', () => {
-    expect(hasNewVersion('v1.0.5')).toBe(true);
+    expect(hasNewVersion('v1.0.6')).toBe(true);
+    expect(hasNewVersion('v1.0.5')).toBe(false);
     expect(hasNewVersion('v1.0.4')).toBe(false);
     expect(hasNewVersion('v1.0.2')).toBe(false);
   });
@@ -37,6 +39,17 @@ describe('APP updater', () => {
     expect(describeUpdateError(new Error('native failure'))).toMatchObject({
       code: 'UPD-999',
       technical: 'native failure',
+    });
+  });
+
+  it('maps Android DownloadManager failures to a dedicated code', () => {
+    expect(
+      classifyDownloadError(
+        new Error('Download manager failed. Status Code = 16'),
+      ),
+    ).toMatchObject({
+      code: 'UPD-206',
+      technical: 'Download manager failed. Status Code = 16',
     });
   });
 });

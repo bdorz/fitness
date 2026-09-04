@@ -1,10 +1,14 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import type { GithubReleaseAsset } from './updateService';
-import { AppUpdateError, technicalMessage } from './updateErrors';
+import {
+  AppUpdateError,
+  classifyDownloadError,
+  technicalMessage,
+} from './updateErrors';
 
 const APK_MIME = 'application/vnd.android.package-archive';
-const DOWNLOAD_ATTEMPTS = 3;
+const ANDROID_Q = 29;
 
 function apkFileName(url: string): string {
   try {
@@ -21,82 +25,35 @@ function apkFileName(url: string): string {
   }
 }
 
-async function removeFile(path: string): Promise<void> {
+async function requestLegacyStoragePermission(): Promise<void> {
+  if (Number(Platform.Version) >= ANDROID_Q) {
+    return;
+  }
+
+  const permission = PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
+  const alreadyGranted = await PermissionsAndroid.check(permission);
+  if (alreadyGranted) {
+    return;
+  }
+
+  const result = await PermissionsAndroid.request(permission, {
+    title: '允許下載更新檔',
+    message: 'Android 9 以下版本需要儲存空間權限，才能下載 APK 更新檔。',
+    buttonPositive: '允許',
+    buttonNegative: '取消',
+  });
+  if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+    throw new AppUpdateError('UPD-207', `permission result: ${result}`);
+  }
+}
+
+async function removeExistingFile(path: string): Promise<void> {
   try {
     if (await ReactNativeBlobUtil.fs.exists(path)) {
       await ReactNativeBlobUtil.fs.unlink(path);
     }
   } catch (error) {
     throw new AppUpdateError('UPD-205', technicalMessage(error));
-  }
-}
-
-async function fileSize(path: string): Promise<number> {
-  try {
-    if (!(await ReactNativeBlobUtil.fs.exists(path))) {
-      return 0;
-    }
-    const stat = await ReactNativeBlobUtil.fs.stat(path);
-    const size = Number(stat.size);
-    if (!Number.isFinite(size) || size < 0) {
-      throw new Error(`invalid file size: ${stat.size}`);
-    }
-    return size;
-  } catch (error) {
-    if (error instanceof AppUpdateError) {
-      throw error;
-    }
-    throw new AppUpdateError('UPD-205', technicalMessage(error));
-  }
-}
-
-function normalizeDownloadError(error: unknown): AppUpdateError {
-  if (error instanceof AppUpdateError) {
-    return error;
-  }
-  const message = technicalMessage(error);
-  if (
-    /space|storage|write|file|directory|permission|EACCES|ENOSPC/i.test(message)
-  ) {
-    return new AppUpdateError('UPD-205', message);
-  }
-  return new AppUpdateError('UPD-202', message, true);
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, milliseconds));
-}
-
-async function verifyDownload(
-  path: string,
-  expectedSize: number,
-  expectedDigest?: string,
-): Promise<void> {
-  const downloadedSize = await fileSize(path);
-  if (downloadedSize !== expectedSize) {
-    if (downloadedSize > expectedSize) {
-      await removeFile(path);
-    }
-    throw new AppUpdateError(
-      'UPD-204',
-      `expected ${expectedSize} bytes, received ${downloadedSize}`,
-      downloadedSize < expectedSize,
-    );
-  }
-
-  if (expectedDigest?.startsWith('sha256:')) {
-    try {
-      const actualDigest = await ReactNativeBlobUtil.fs.hash(path, 'sha256');
-      if (`sha256:${actualDigest}` !== expectedDigest.toLowerCase()) {
-        await removeFile(path);
-        throw new AppUpdateError('UPD-204', 'SHA-256 digest mismatch');
-      }
-    } catch (error) {
-      if (error instanceof AppUpdateError) {
-        throw error;
-      }
-      throw new AppUpdateError('UPD-205', technicalMessage(error));
-    }
   }
 }
 
@@ -117,92 +74,66 @@ export async function downloadAndInstallApk(
     throw new AppUpdateError('UPD-204', `invalid expected size: ${asset.size}`);
   }
 
-  // 與 book 專案一致使用 CacheDir，避免共用儲存空間權限與 DownloadManager 路徑問題。
-  const destination = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${apkFileName(
-    url,
-  )}`;
-  const partial = `${destination}.part`;
-  await removeFile(destination);
+  await requestLegacyStoragePermission();
 
-  let completed = false;
-  let lastError: AppUpdateError | null = null;
+  const fileName = apkFileName(url);
+  const isModernAndroid = Number(Platform.Version) >= ANDROID_Q;
+  const legacyDestination = `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`;
 
-  for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
-    let existingSize = await fileSize(partial);
-    if (existingSize > asset.size) {
-      await removeFile(partial);
-      existingSize = 0;
-    }
+  if (!isModernAndroid) {
+    await removeExistingFile(legacyDestination);
+  }
 
-    if (existingSize === asset.size) {
-      await verifyDownload(partial, asset.size, asset.digest);
-      completed = true;
-      break;
-    }
-
-    const isResume = existingSize > 0;
-    const requestPath = isResume ? `${partial}?append=true` : partial;
-    const headers: Record<string, string> = {
-      Accept: 'application/octet-stream',
-      'User-Agent': `FitnessApp/${currentVersion}`,
-    };
-    if (isResume) {
-      headers.Range = `bytes=${existingSize}-`;
-    }
-
-    try {
-      const response = await ReactNativeBlobUtil.config({
-        path: requestPath,
-        overwrite: !isResume,
-        followRedirect: true,
-        timeout: 30000,
+  let downloadedPath: string;
+  try {
+    // Large APKs are handled by Android's DownloadManager. This is the same
+    // download service used by browsers, and it can continue through brief
+    // network interruptions without keeping the React Native process alive.
+    const response = await ReactNativeBlobUtil.config({
+      addAndroidDownloads: {
+        useDownloadManager: true,
+        notification: true,
+        title: fileName,
+        description: 'Fitness App 更新檔',
+        mime: APK_MIME,
+        mediaScannable: true,
+        ...(isModernAndroid
+          ? { storeInDownloads: true }
+          : { path: legacyDestination }),
+      },
+    })
+      .fetch('GET', url, {
+        Accept: 'application/octet-stream',
+        'User-Agent': `FitnessApp/${currentVersion}`,
       })
-        .fetch('GET', url, headers)
-        .progress({ interval: 250 }, received => {
-          const downloaded = existingSize + Number(received);
-          onProgress(Math.min(downloaded / asset.size, 0.99));
-        });
-
-      const status = response.info().status;
-      if (status < 200 || status >= 300) {
-        await removeFile(partial);
-        throw new AppUpdateError('UPD-203', `HTTP ${status}`);
-      }
-      if (isResume && status !== 206) {
-        await removeFile(partial);
-        throw new AppUpdateError(
-          'UPD-203',
-          `server ignored range request: HTTP ${status}`,
-          true,
+      .progress({ interval: 250 }, (received, total) => {
+        const expected = Number(total) > 0 ? Number(total) : asset.size;
+        onProgress(
+          Math.max(0, Math.min(Number(received) / expected, 0.99)),
         );
-      }
+      });
 
-      await verifyDownload(partial, asset.size, asset.digest);
-      completed = true;
-      break;
-    } catch (error) {
-      lastError = normalizeDownloadError(error);
-      if (!lastError.retryable || attempt === DOWNLOAD_ATTEMPTS) {
-        throw lastError;
-      }
-      await wait(attempt * 750);
+    downloadedPath = response.path();
+    if (!downloadedPath) {
+      throw new AppUpdateError('UPD-206', 'DownloadManager returned no path');
     }
-  }
-
-  if (!completed) {
-    throw lastError ?? new AppUpdateError('UPD-202');
-  }
-
-  try {
-    await ReactNativeBlobUtil.fs.mv(partial, destination);
   } catch (error) {
-    throw new AppUpdateError('UPD-205', technicalMessage(error));
+    if (error instanceof AppUpdateError) {
+      throw error;
+    }
+    const normalized = classifyDownloadError(error);
+    if (normalized.code === 'UPD-206') {
+      throw normalized;
+    }
+    throw normalized;
   }
-  onProgress(1);
 
+  onProgress(1);
   try {
-    // 不可在 Intent 後立刻刪檔；Android 安裝器仍需透過套件的 FileProvider 讀取。
-    await ReactNativeBlobUtil.android.actionViewIntent(destination, APK_MIME);
+    await ReactNativeBlobUtil.android.actionViewIntent(
+      downloadedPath,
+      APK_MIME,
+    );
   } catch (error) {
     throw new AppUpdateError('UPD-301', technicalMessage(error));
   }
