@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,16 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import {useFocusEffect, useRoute, useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {RouteProp} from '@react-navigation/native';
-import {RootStackParamList, WorkoutCategory, Exercise} from '../types';
+import {
+  useFocusEffect,
+  useRoute,
+  useNavigation,
+} from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../../app/navigation/types';
+import { Colors } from '../../shared/theme/colors';
+import { Exercise, WorkoutCategory } from './types';
 import {
   getCategories,
   updateCategory,
@@ -25,8 +31,7 @@ import {
   deleteExercise,
   toggleExercise,
   resetAllExercises,
-} from '../storage/database';
-import {Colors} from '../context/colors';
+} from './workoutRepository';
 
 type RouteProps = RouteProp<RootStackParamList, 'Exercises'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Exercises'>;
@@ -50,7 +55,7 @@ const EMPTY_FORM: ExForm = {
 export default function ExercisesScreen() {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavProp>();
-  const {categoryId} = route.params;
+  const { categoryId } = route.params;
 
   const [category, setCategory] = useState<WorkoutCategory | null>(null);
   const [catModalVisible, setCatModalVisible] = useState(false);
@@ -97,7 +102,7 @@ export default function ExercisesScreen() {
       '確認刪除',
       `確定要刪除「${category.name}」？\n所有動作也會一併刪除。`,
       [
-        {text: '取消', style: 'cancel'},
+        { text: '取消', style: 'cancel' },
         {
           text: '刪除',
           style: 'destructive',
@@ -133,7 +138,7 @@ export default function ExercisesScreen() {
     if (!exForm.name.trim()) {
       return;
     }
-    const data = {...exForm, name: exForm.name.trim()};
+    const data = { ...exForm, name: exForm.name.trim() };
     if (editExId) {
       await updateExercise(categoryId, editExId, data);
     } else {
@@ -145,7 +150,7 @@ export default function ExercisesScreen() {
 
   function confirmDeleteEx(ex: Exercise) {
     Alert.alert('確認刪除', `確定要刪除「${ex.name}」？`, [
-      {text: '取消', style: 'cancel'},
+      { text: '取消', style: 'cancel' },
       {
         text: '刪除',
         style: 'destructive',
@@ -164,7 +169,7 @@ export default function ExercisesScreen() {
 
   function confirmReset() {
     Alert.alert('重置確認', '確定要重置所有勾選嗎？', [
-      {text: '取消', style: 'cancel'},
+      { text: '取消', style: 'cancel' },
       {
         text: '重置',
         style: 'destructive',
@@ -186,34 +191,24 @@ export default function ExercisesScreen() {
   const pct = total ? done / total : 0;
   const allDone = total > 0 && done === total;
 
-  function renderExercise({
-    item,
-    index,
-  }: {
-    item: Exercise;
-    index: number;
-  }) {
+  function renderExercise({ item, index }: { item: Exercise; index: number }) {
     return (
       <TouchableOpacity
         style={[styles.exCard, item.completed && styles.exCardDone]}
         onPress={() => handleToggle(item.id)}
-        activeOpacity={0.7}>
-        <View
-          style={[styles.checkbox, item.completed && styles.checkboxDone]}>
-          {item.completed && (
-            <Text style={styles.checkmark}>✓</Text>
-          )}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.checkbox, item.completed && styles.checkboxDone]}>
+          {item.completed && <Text style={styles.checkmark}>✓</Text>}
         </View>
 
         <View style={styles.exInfo}>
           <View style={styles.exTitleRow}>
             <Text style={styles.exNum}>{index + 1}.</Text>
             <Text
-              style={[
-                styles.exName,
-                item.completed && styles.exNameDone,
-              ]}
-              numberOfLines={1}>
+              style={[styles.exName, item.completed && styles.exNameDone]}
+              numberOfLines={1}
+            >
               {item.name}
             </Text>
           </View>
@@ -243,13 +238,15 @@ export default function ExercisesScreen() {
         <View style={styles.exActions}>
           <TouchableOpacity
             style={styles.exActionBtn}
-            onPress={() => openEditEx(item)}>
+            onPress={() => openEditEx(item)}
+          >
             <Text style={styles.exActionIcon}>✏</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.exActionBtn}
-            onPress={() => confirmDeleteEx(item)}>
-            <Text style={[styles.exActionIcon, {color: Colors.red}]}>✕</Text>
+            onPress={() => confirmDeleteEx(item)}
+          >
+            <Text style={[styles.exActionIcon, { color: Colors.red }]}>✕</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -262,7 +259,8 @@ export default function ExercisesScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={styles.backBtn}>
+          style={styles.backBtn}
+        >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -272,7 +270,7 @@ export default function ExercisesScreen() {
           <Text style={styles.headerBtnIcon}>✏</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={confirmDeleteCat}>
-          <Text style={[styles.headerBtnIcon, {color: Colors.red}]}>🗑</Text>
+          <Text style={[styles.headerBtnIcon, { color: Colors.red }]}>🗑</Text>
         </TouchableOpacity>
       </View>
 
@@ -283,11 +281,11 @@ export default function ExercisesScreen() {
             <View
               style={[
                 styles.progFill,
-                {width: `${Math.round(pct * 100)}%` as any},
+                { width: `${Math.round(pct * 100)}%` as any },
               ]}
             />
           </View>
-          <Text style={[styles.progLabel, allDone && {color: Colors.green}]}>
+          <Text style={[styles.progLabel, allDone && { color: Colors.green }]}>
             {allDone ? '🎉 全部完成！' : `${done} / ${total} 完成`}
           </Text>
         </View>
@@ -308,9 +306,7 @@ export default function ExercisesScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
-            <TouchableOpacity
-              style={styles.resetBtn}
-              onPress={confirmReset}>
+            <TouchableOpacity style={styles.resetBtn} onPress={confirmReset}>
               <Text style={styles.resetBtnText}>重置所有勾選</Text>
             </TouchableOpacity>
           }
@@ -321,7 +317,8 @@ export default function ExercisesScreen() {
       <TouchableOpacity
         style={styles.fab}
         onPress={openAddEx}
-        activeOpacity={0.85}>
+        activeOpacity={0.85}
+      >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
@@ -330,16 +327,17 @@ export default function ExercisesScreen() {
         visible={catModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setCatModalVisible(false)}>
+        onRequestClose={() => setCatModalVisible(false)}
+      >
         <TouchableOpacity
           style={styles.overlay}
           activeOpacity={1}
-          onPress={() => setCatModalVisible(false)}>
+          onPress={() => setCatModalVisible(false)}
+        >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View
-              style={styles.sheet}
-              onStartShouldSetResponder={() => true}>
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <View style={styles.sheet} onStartShouldSetResponder={() => true}>
               <View style={styles.handle} />
               <Text style={styles.sheetTitle}>編輯訓練日</Text>
               <Text style={styles.fieldLabel}>名稱</Text>
@@ -356,12 +354,14 @@ export default function ExercisesScreen() {
               <View style={styles.sheetBtns}>
                 <TouchableOpacity
                   style={[styles.btn, styles.btnSec]}
-                  onPress={() => setCatModalVisible(false)}>
+                  onPress={() => setCatModalVisible(false)}
+                >
                   <Text style={styles.btnSecText}>取消</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btn, styles.btnPri]}
-                  onPress={handleSaveCat}>
+                  onPress={handleSaveCat}
+                >
                   <Text style={styles.btnPriText}>儲存</Text>
                 </TouchableOpacity>
               </View>
@@ -375,17 +375,18 @@ export default function ExercisesScreen() {
         visible={exModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setExModalVisible(false)}>
+        onRequestClose={() => setExModalVisible(false)}
+      >
         <TouchableOpacity
           style={styles.overlay}
           activeOpacity={1}
-          onPress={() => setExModalVisible(false)}>
+          onPress={() => setExModalVisible(false)}
+        >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
             <ScrollView keyboardShouldPersistTaps="handled">
-              <View
-                style={styles.sheet}
-                onStartShouldSetResponder={() => true}>
+              <View style={styles.sheet} onStartShouldSetResponder={() => true}>
                 <View style={styles.handle} />
                 <Text style={styles.sheetTitle}>
                   {editExId ? '編輯動作' : '新增動作'}
@@ -395,7 +396,7 @@ export default function ExercisesScreen() {
                 <TextInput
                   style={styles.input}
                   value={exForm.name}
-                  onChangeText={v => setExForm(f => ({...f, name: v}))}
+                  onChangeText={v => setExForm(f => ({ ...f, name: v }))}
                   placeholder="例：機械肩推、臥推、深蹲…"
                   placeholderTextColor={Colors.text3}
                   autoFocus
@@ -408,9 +409,7 @@ export default function ExercisesScreen() {
                     <TextInput
                       style={styles.input}
                       value={exForm.weight}
-                      onChangeText={v =>
-                        setExForm(f => ({...f, weight: v}))
-                      }
+                      onChangeText={v => setExForm(f => ({ ...f, weight: v }))}
                       placeholder="0"
                       placeholderTextColor={Colors.text3}
                       keyboardType="decimal-pad"
@@ -425,15 +424,14 @@ export default function ExercisesScreen() {
                           styles.unitBtn,
                           exForm.unit === 'kg' && styles.unitBtnActive,
                         ]}
-                        onPress={() =>
-                          setExForm(f => ({...f, unit: 'kg'}))
-                        }>
+                        onPress={() => setExForm(f => ({ ...f, unit: 'kg' }))}
+                      >
                         <Text
                           style={[
                             styles.unitBtnText,
-                            exForm.unit === 'kg' &&
-                              styles.unitBtnTextActive,
-                          ]}>
+                            exForm.unit === 'kg' && styles.unitBtnTextActive,
+                          ]}
+                        >
                           kg
                         </Text>
                       </TouchableOpacity>
@@ -442,15 +440,14 @@ export default function ExercisesScreen() {
                           styles.unitBtn,
                           exForm.unit === 'lbs' && styles.unitBtnActive,
                         ]}
-                        onPress={() =>
-                          setExForm(f => ({...f, unit: 'lbs'}))
-                        }>
+                        onPress={() => setExForm(f => ({ ...f, unit: 'lbs' }))}
+                      >
                         <Text
                           style={[
                             styles.unitBtnText,
-                            exForm.unit === 'lbs' &&
-                              styles.unitBtnTextActive,
-                          ]}>
+                            exForm.unit === 'lbs' && styles.unitBtnTextActive,
+                          ]}
+                        >
                           磅
                         </Text>
                       </TouchableOpacity>
@@ -464,9 +461,7 @@ export default function ExercisesScreen() {
                     <TextInput
                       style={styles.input}
                       value={exForm.sets}
-                      onChangeText={v =>
-                        setExForm(f => ({...f, sets: v}))
-                      }
+                      onChangeText={v => setExForm(f => ({ ...f, sets: v }))}
                       placeholder="4"
                       placeholderTextColor={Colors.text3}
                       keyboardType="number-pad"
@@ -478,9 +473,7 @@ export default function ExercisesScreen() {
                     <TextInput
                       style={styles.input}
                       value={exForm.reps}
-                      onChangeText={v =>
-                        setExForm(f => ({...f, reps: v}))
-                      }
+                      onChangeText={v => setExForm(f => ({ ...f, reps: v }))}
                       placeholder="12"
                       placeholderTextColor={Colors.text3}
                       keyboardType="number-pad"
@@ -493,12 +486,14 @@ export default function ExercisesScreen() {
                 <View style={styles.sheetBtns}>
                   <TouchableOpacity
                     style={[styles.btn, styles.btnSec]}
-                    onPress={() => setExModalVisible(false)}>
+                    onPress={() => setExModalVisible(false)}
+                  >
                     <Text style={styles.btnSecText}>取消</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.btn, styles.btnPri]}
-                    onPress={handleSaveEx}>
+                    onPress={handleSaveEx}
+                  >
                     <Text style={styles.btnPriText}>儲存</Text>
                   </TouchableOpacity>
                 </View>
@@ -512,7 +507,7 @@ export default function ExercisesScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: Colors.bg},
+  root: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -520,17 +515,17 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 16,
   },
-  backBtn: {padding: 4, marginRight: 4},
-  backIcon: {fontSize: 28, color: Colors.accent, lineHeight: 32},
+  backBtn: { padding: 4, marginRight: 4 },
+  backIcon: { fontSize: 28, color: Colors.accent, lineHeight: 32 },
   headerTitle: {
     flex: 1,
     fontSize: 20,
     fontWeight: '800',
     color: Colors.text,
   },
-  headerBtn: {padding: 8},
-  headerBtnIcon: {fontSize: 18, color: Colors.text2},
-  progSection: {paddingHorizontal: 16, paddingBottom: 14},
+  headerBtn: { padding: 8 },
+  headerBtnIcon: { fontSize: 18, color: Colors.text2 },
+  progSection: { paddingHorizontal: 16, paddingBottom: 14 },
   progBg: {
     height: 8,
     backgroundColor: Colors.card3,
@@ -543,8 +538,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     borderRadius: 99,
   },
-  progLabel: {fontSize: 13, color: Colors.text2, textAlign: 'right'},
-  list: {padding: 12, paddingBottom: 100},
+  progLabel: { fontSize: 13, color: Colors.text2, textAlign: 'right' },
+  list: { padding: 12, paddingBottom: 100 },
   exCard: {
     backgroundColor: Colors.card,
     borderRadius: 12,
@@ -555,7 +550,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
-  exCardDone: {opacity: 0.5},
+  exCardDone: { opacity: 0.5 },
   checkbox: {
     width: 28,
     height: 28,
@@ -567,40 +562,40 @@ const styles = StyleSheet.create({
     marginRight: 10,
     flexShrink: 0,
   },
-  checkboxDone: {backgroundColor: Colors.green, borderColor: Colors.green},
+  checkboxDone: { backgroundColor: Colors.green, borderColor: Colors.green },
   checkmark: {
     fontSize: 16,
     color: Colors.bg,
     fontWeight: '800',
     lineHeight: 20,
   },
-  exInfo: {flex: 1, minWidth: 0},
+  exInfo: { flex: 1, minWidth: 0 },
   exTitleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 4,
     marginBottom: 6,
   },
-  exNum: {fontSize: 13, color: Colors.text2},
-  exName: {fontSize: 15, fontWeight: '700', color: Colors.text, flex: 1},
-  exNameDone: {textDecorationLine: 'line-through', color: Colors.text2},
-  exTags: {flexDirection: 'row', flexWrap: 'wrap', gap: 4},
+  exNum: { fontSize: 13, color: Colors.text2 },
+  exName: { fontSize: 15, fontWeight: '700', color: Colors.text, flex: 1 },
+  exNameDone: { textDecorationLine: 'line-through', color: Colors.text2 },
+  exTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   tag: {
     backgroundColor: Colors.card2,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  tagWeight: {backgroundColor: Colors.accentDim},
-  tagText: {fontSize: 12, color: Colors.text2},
-  tagTextWeight: {color: Colors.accent},
-  exActions: {flexDirection: 'column', gap: 2, marginLeft: 6},
-  exActionBtn: {padding: 6},
-  exActionIcon: {fontSize: 16, color: Colors.text2},
-  empty: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  emptyIcon: {fontSize: 64, marginBottom: 16, opacity: 0.3},
-  emptyText: {fontSize: 17, fontWeight: '600', color: Colors.text2},
-  emptyHint: {fontSize: 14, color: Colors.text3, marginTop: 6},
+  tagWeight: { backgroundColor: Colors.accentDim },
+  tagText: { fontSize: 12, color: Colors.text2 },
+  tagTextWeight: { color: Colors.accent },
+  exActions: { flexDirection: 'column', gap: 2, marginLeft: 6 },
+  exActionBtn: { padding: 6 },
+  exActionIcon: { fontSize: 16, color: Colors.text2 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: { fontSize: 64, marginBottom: 16, opacity: 0.3 },
+  emptyText: { fontSize: 17, fontWeight: '600', color: Colors.text2 },
+  emptyHint: { fontSize: 14, color: Colors.text3, marginTop: 6 },
   resetBtn: {
     alignSelf: 'center',
     marginTop: 10,
@@ -610,7 +605,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  resetBtnText: {fontSize: 14, color: Colors.text2},
+  resetBtnText: { fontSize: 14, color: Colors.text2 },
   fab: {
     position: 'absolute',
     right: 20,
@@ -623,7 +618,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 8,
     shadowColor: Colors.accent,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
   },
@@ -678,10 +673,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 16,
   },
-  fieldRow: {flexDirection: 'row', gap: 10},
-  fieldFlex2: {flex: 2},
-  fieldFlex1: {flex: 1},
-  fieldHalf: {flex: 1},
+  fieldRow: { flexDirection: 'row', gap: 10 },
+  fieldFlex2: { flex: 2 },
+  fieldFlex1: { flex: 1 },
+  fieldHalf: { flex: 1 },
   unitToggle: {
     flexDirection: 'row',
     backgroundColor: Colors.card3,
@@ -692,14 +687,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  unitBtn: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  unitBtnActive: {backgroundColor: Colors.accent},
-  unitBtnText: {fontSize: 14, fontWeight: '700', color: Colors.text2},
-  unitBtnTextActive: {color: Colors.white},
-  sheetBtns: {flexDirection: 'row', gap: 10, marginTop: 4},
-  btn: {flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center'},
-  btnPri: {backgroundColor: Colors.accent},
-  btnSec: {backgroundColor: Colors.card3},
-  btnPriText: {fontSize: 16, fontWeight: '700', color: Colors.white},
-  btnSecText: {fontSize: 16, fontWeight: '700', color: Colors.text2},
+  unitBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  unitBtnActive: { backgroundColor: Colors.accent },
+  unitBtnText: { fontSize: 14, fontWeight: '700', color: Colors.text2 },
+  unitBtnTextActive: { color: Colors.white },
+  sheetBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  btn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  btnPri: { backgroundColor: Colors.accent },
+  btnSec: { backgroundColor: Colors.card3 },
+  btnPriText: { fontSize: 16, fontWeight: '700', color: Colors.white },
+  btnSecText: { fontSize: 16, fontWeight: '700', color: Colors.text2 },
 });

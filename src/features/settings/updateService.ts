@@ -1,9 +1,9 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {Alert, Platform} from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 export const GITHUB_OWNER = 'bdorz';
 export const GITHUB_REPO = 'fitness';
-export const CURRENT_VERSION = '1.0.2';
+export const CURRENT_VERSION = '1.0.3';
 
 export interface GithubRelease {
   tag_name: string;
@@ -17,7 +17,10 @@ export interface GithubRelease {
 }
 
 function versionParts(version: string): number[] {
-  return version.replace(/^v/i, '').split('.').map(part => Number(part) || 0);
+  return version
+    .replace(/^v/i, '')
+    .split('.')
+    .map(part => Number(part) || 0);
 }
 
 export function hasNewVersion(latestTag: string): boolean {
@@ -80,9 +83,9 @@ export async function downloadAndInstallApk(
   if (await ReactNativeBlobUtil.fs.exists(destination)) {
     await ReactNativeBlobUtil.fs.unlink(destination);
   }
-  await ReactNativeBlobUtil.config({path: destination})
+  await ReactNativeBlobUtil.config({ path: destination })
     .fetch('GET', url)
-    .progress({interval: 250}, (received, total) => {
+    .progress({ interval: 250 }, (received, total) => {
       onProgress(Number(total) > 0 ? Number(received) / Number(total) : 0);
     });
   await ReactNativeBlobUtil.android.actionViewIntent(

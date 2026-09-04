@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
-import {Colors} from '../context/colors';
+import { Colors } from '../../shared/theme/colors';
 
 const REF_KG = [
   2.5, 5, 7.5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 120,
@@ -21,7 +21,7 @@ export default function ConverterScreen() {
   function handleKgChange(v: string) {
     setKg(v);
     const n = parseFloat(v);
-    setLbs(!isNaN(n) && v !== '' ? (n * 2.20462).toFixed(1) : '');
+    setLbs(!isNaN(n) && v !== '' ? (n * 2.20462).toFixed(2) : '');
   }
 
   function handleLbsChange(v: string) {
@@ -49,7 +49,6 @@ export default function ConverterScreen() {
                 keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={Colors.text3}
-                selectTextOnFocus
               />
               <Text style={styles.convUnit}>公斤 kg</Text>
             </View>
@@ -62,7 +61,6 @@ export default function ConverterScreen() {
                 keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={Colors.text3}
-                selectTextOnFocus
               />
               <Text style={styles.convUnit}>磅 lbs</Text>
             </View>
@@ -82,24 +80,25 @@ export default function ConverterScreen() {
           {REF_KG.map((k, i) => (
             <View
               key={k}
-              style={[styles.tableRow, i % 2 === 1 && styles.rowAlt]}>
+              style={[styles.tableRow, i % 2 === 1 && styles.rowAlt]}
+            >
               <Text style={[styles.cell, styles.cellText]}>{k}</Text>
               <Text style={[styles.cell, styles.cellText]}>
-                {(k * 2.20462).toFixed(1)}
+                {(k * 2.20462).toFixed(2)}
               </Text>
             </View>
           ))}
         </View>
 
-        <View style={{height: 32}} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: Colors.bg},
-  header: {paddingTop: 20, paddingBottom: 14, paddingHorizontal: 20},
+  root: { flex: 1, backgroundColor: Colors.bg },
+  header: { paddingTop: 20, paddingBottom: 14, paddingHorizontal: 20 },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -115,8 +114,8 @@ const styles = StyleSheet.create({
     margin: 12,
     marginBottom: 0,
   },
-  convRow: {flexDirection: 'row', alignItems: 'center', gap: 12},
-  convGroup: {flex: 1, alignItems: 'center', gap: 8},
+  convRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  convGroup: { flex: 1, alignItems: 'center', gap: 8 },
   convInput: {
     backgroundColor: Colors.card2,
     borderRadius: 12,
@@ -135,8 +134,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  convSym: {fontSize: 26, color: Colors.accent, flexShrink: 0},
-  formula: {marginTop: 14, fontSize: 12, color: Colors.text3, textAlign: 'center'},
+  convSym: { fontSize: 26, color: Colors.accent, flexShrink: 0 },
+  formula: {
+    marginTop: 14,
+    fontSize: 12,
+    color: Colors.text3,
+    textAlign: 'center',
+  },
   tableTitle: {
     fontSize: 13,
     fontWeight: '700',
@@ -152,9 +156,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 4,
   },
-  cell: {flex: 1, textAlign: 'center'},
-  headText: {fontSize: 12, fontWeight: '700', color: Colors.text2},
-  tableRow: {flexDirection: 'row', paddingVertical: 7, borderRadius: 6},
-  rowAlt: {backgroundColor: Colors.card2},
-  cellText: {fontSize: 14, color: Colors.text},
+  cell: { flex: 1, textAlign: 'center' },
+  headText: { fontSize: 12, fontWeight: '700', color: Colors.text2 },
+  tableRow: { flexDirection: 'row', paddingVertical: 7, borderRadius: 6 },
+  rowAlt: { backgroundColor: Colors.card2 },
+  cellText: { fontSize: 14, color: Colors.text },
+  bottomSpacer: { height: 32 },
 });

@@ -43,22 +43,27 @@ npm run android
 - react-native-blob-util 下載 Android 更新 APK
 - GitHub Actions 自動建置並發佈 APK
 
+專案採功能分區：畫面、型別與資料存取放在各自的 `src/features` 目錄；導覽與共用主題則分別位於 `src/app`、`src/shared`。完整說明請見 [專案架構](docs/ARCHITECTURE.md)。
+
 ## 發布新版本
 
 發布前請同步更新以下版本號：
 
 - `package.json` 的 `version`
 - `android/app/build.gradle` 的 `versionCode` 與 `versionName`
-- `src/utils/updater.ts` 的 `CURRENT_VERSION`
+- `src/features/settings/updateService.ts` 的 `CURRENT_VERSION`
 
-接著提交並推送程式碼，再建立相同版本的 GitHub Release 並附上 APK。例如發布 `v1.0.1`：
+本機需先安裝 [GitHub CLI](https://cli.github.com/) 並完成 `gh auth login`。提交並推送程式碼後，執行：
 
 ```powershell
-npm run build
 git add .
-git commit -m "release: v1.0.1"
+git commit -m "release: v1.0.3"
 git push origin main
-gh release create v1.0.1 "健身紀錄-v1.0.1.apk" --title "健身紀錄 v1.0.1" --generate-notes
+npm run release:android
 ```
+
+`release:android` 會檢查三處版本號是否一致、建置 APK、建立或更新同版本的 GitHub Release，最後不論成功或失敗都會刪除本機 APK。若只想測試建置，可執行 `npm run build`；APK 會留在 Android 的 `build` 目錄，但該目錄及所有 APK 均已由 Git 忽略。
+
+也可以從 GitHub Actions 手動執行 **Build & Release APK**；工作流程會讀取 `package.json` 版本號，發布後清除 runner 上的 APK。
 
 APP 會查詢 `bdorz/fitness` 的最新 GitHub Release；Release 必須包含 `.apk` 檔案，APP 內下載按鈕才會出現。
