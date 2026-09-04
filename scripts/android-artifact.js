@@ -84,7 +84,7 @@ function buildAndroid() {
 }
 
 function stagedArtifact(version) {
-  return path.join(stagingDirectory, `健身紀錄-v${version}.apk`);
+  return path.join(stagingDirectory, `fitness-v${version}.apk`);
 }
 
 function cleanupReleaseArtifacts(version) {

@@ -53,7 +53,7 @@ jobs:
       - name: Stage APK
         run: |
           mkdir -p .release
-          cp android/app/build/outputs/apk/release/app-release.apk ".release/健身紀錄-v${{ steps.app.outputs.version }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk ".release/fitness-v${{ steps.app.outputs.version }}.apk"
 
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -63,7 +63,7 @@ jobs:
           body: |
             🏋️ 手動建置 #${{ github.run_number }}
             提交：${{ github.sha }}
-          files: .release/健身紀錄-v${{ steps.app.outputs.version }}.apk
+          files: .release/fitness-v${{ steps.app.outputs.version }}.apk
 
       - name: Remove local APK artifacts
         if: always()
