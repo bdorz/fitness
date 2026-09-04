@@ -1,19 +1,21 @@
-import ReactNativeBlobUtil from 'react-native-blob-util';
-import { Alert, Platform } from 'react-native';
+import { AppUpdateError, technicalMessage } from './updateErrors';
 
 export const GITHUB_OWNER = 'bdorz';
 export const GITHUB_REPO = 'fitness';
-export const CURRENT_VERSION = '1.0.3';
+export const CURRENT_VERSION = '1.0.4';
+
+export interface GithubReleaseAsset {
+  name: string;
+  browser_download_url: string;
+  size: number;
+  digest?: string;
+}
 
 export interface GithubRelease {
   tag_name: string;
   name: string;
   body: string;
-  assets: {
-    name: string;
-    browser_download_url: string;
-    size: number;
-  }[];
+  assets: GithubReleaseAsset[];
 }
 
 function versionParts(version: string): number[] {
@@ -35,61 +37,73 @@ export function hasNewVersion(latestTag: string): boolean {
   return false;
 }
 
+function isGithubRelease(value: unknown): value is GithubRelease {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const release = value as Partial<GithubRelease>;
+  return typeof release.tag_name === 'string' && Array.isArray(release.assets);
+}
+
+async function parseReleaseResponse(
+  response: Response,
+): Promise<GithubRelease> {
+  try {
+    const data: unknown = await response.json();
+    if (!isGithubRelease(data)) {
+      throw new Error('missing tag_name or assets');
+    }
+    return data;
+  } catch (error) {
+    throw new AppUpdateError('UPD-103', technicalMessage(error));
+  }
+}
+
+async function githubFetch(url: string): Promise<Response> {
+  try {
+    return await fetch(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'Cache-Control': 'no-cache, no-store',
+      },
+    });
+  } catch (error) {
+    throw new AppUpdateError('UPD-101', technicalMessage(error));
+  }
+}
+
 export async function fetchLatestRelease(): Promise<GithubRelease> {
   const baseUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
-  const requestOptions = {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'Cache-Control': 'no-cache, no-store',
-    },
-    cache: 'no-store' as const,
-  };
   const cacheBuster = Date.now();
-  const latestResponse = await fetch(
+  const latestResponse = await githubFetch(
     `${baseUrl}/releases/latest?ts=${cacheBuster}`,
-    requestOptions,
   );
   if (latestResponse.ok) {
-    return latestResponse.json();
+    return parseReleaseResponse(latestResponse);
   }
 
   // 部分裝置可能保留 repository 尚未公開時的 404，改用列表端點重試。
-  const listResponse = await fetch(
+  const listResponse = await githubFetch(
     `${baseUrl}/releases?per_page=1&ts=${cacheBuster}`,
-    requestOptions,
   );
   if (!listResponse.ok) {
-    throw new Error(
-      `GitHub API 錯誤：${latestResponse.status}/${listResponse.status}`,
+    throw new AppUpdateError(
+      'UPD-102',
+      `HTTP ${latestResponse.status}/${listResponse.status}`,
     );
   }
-  const releases: GithubRelease[] = await listResponse.json();
-  if (!releases.length) {
-    throw new Error('GitHub 尚未發布任何版本');
+
+  let releases: unknown;
+  try {
+    releases = await listResponse.json();
+  } catch (error) {
+    throw new AppUpdateError('UPD-103', technicalMessage(error));
+  }
+  if (!Array.isArray(releases) || !releases.length) {
+    throw new AppUpdateError('UPD-104');
+  }
+  if (!isGithubRelease(releases[0])) {
+    throw new AppUpdateError('UPD-103', 'invalid releases response');
   }
   return releases[0];
-}
-
-export async function downloadAndInstallApk(
-  url: string,
-  onProgress: (progress: number) => void,
-): Promise<void> {
-  if (Platform.OS !== 'android') {
-    Alert.alert('不支援', '目前僅支援 Android 版 APP 內更新');
-    return;
-  }
-
-  const destination = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/FitnessApp-update.apk`;
-  if (await ReactNativeBlobUtil.fs.exists(destination)) {
-    await ReactNativeBlobUtil.fs.unlink(destination);
-  }
-  await ReactNativeBlobUtil.config({ path: destination })
-    .fetch('GET', url)
-    .progress({ interval: 250 }, (received, total) => {
-      onProgress(Number(total) > 0 ? Number(received) / Number(total) : 0);
-    });
-  await ReactNativeBlobUtil.android.actionViewIntent(
-    destination,
-    'application/vnd.android.package-archive',
-  );
 }

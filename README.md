@@ -45,6 +45,8 @@ npm run android
 
 專案採功能分區：畫面、型別與資料存取放在各自的 `src/features` 目錄；導覽與共用主題則分別位於 `src/app`、`src/shared`。完整說明請見 [專案架構](docs/ARCHITECTURE.md)。
 
+APP 內更新具備斷線續傳、三次自動重試及檔案完整性驗證。若設定頁出現錯誤代碼，請參考 [更新錯誤代碼](docs/UPDATE_ERRORS.md)。
+
 ## 發布新版本
 
 發布前請同步更新以下版本號：

@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../shared/theme/colors';
+import { downloadAndInstallApk } from './apkDownloader';
+import {
+  AppUpdateError,
+  describeUpdateError,
+  UpdateErrorDetails,
+} from './updateErrors';
 import {
   CURRENT_VERSION,
-  downloadAndInstallApk,
   fetchLatestRelease,
+  GithubReleaseAsset,
   hasNewVersion,
 } from './updateService';
 
@@ -18,10 +24,26 @@ type UpdateStatus =
 export default function SettingsScreen() {
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [latestTag, setLatestTag] = useState('');
-  const [downloadUrl, setDownloadUrl] = useState('');
+  const [downloadAsset, setDownloadAsset] = useState<GithubReleaseAsset | null>(
+    null,
+  );
   const [progress, setProgress] = useState(0);
+  const [lastError, setLastError] = useState<UpdateErrorDetails | null>(null);
+
+  function showUpdateError(error: unknown) {
+    const details = describeUpdateError(error);
+    setLastError(details);
+    const technical = details.technical
+      ? `\n\n技術資訊：${details.technical}`
+      : '';
+    Alert.alert(
+      `${details.title} [${details.code}]`,
+      `${details.message}\n\n排除方式：${details.suggestion}${technical}`,
+    );
+  }
 
   async function checkUpdate() {
+    setLastError(null);
     setStatus('checking');
     try {
       const release = await fetchLatestRelease();
@@ -34,26 +56,29 @@ export default function SettingsScreen() {
         asset.name.toLowerCase().endsWith('.apk'),
       );
       if (!apk) {
-        setStatus('idle');
-        Alert.alert('找不到安裝檔', '最新版 Release 尚未附上 APK 檔案');
-        return;
+        throw new AppUpdateError('UPD-105');
       }
-      setDownloadUrl(apk.browser_download_url);
+      setDownloadAsset(apk);
       setStatus('available');
-    } catch (error: any) {
+    } catch (error) {
       setStatus('idle');
-      Alert.alert('檢查失敗', error?.message ?? '目前無法連線至 GitHub');
+      showUpdateError(error);
     }
   }
 
   async function downloadUpdate() {
+    setLastError(null);
     setProgress(0);
     setStatus('downloading');
     try {
-      await downloadAndInstallApk(downloadUrl, setProgress);
-    } catch (error: any) {
+      if (!downloadAsset) {
+        throw new AppUpdateError('UPD-201', 'missing download asset');
+      }
+      await downloadAndInstallApk(downloadAsset, CURRENT_VERSION, setProgress);
       setStatus('available');
-      Alert.alert('下載失敗', error?.message ?? '請稍後再試');
+    } catch (error) {
+      setStatus('available');
+      showUpdateError(error);
     }
   }
 
@@ -113,6 +138,20 @@ export default function SettingsScreen() {
                 : '檢查更新'}
             </Text>
           </TouchableOpacity>
+        )}
+        {lastError && (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorCode} selectable>
+              錯誤代碼 {lastError.code}
+            </Text>
+            <Text style={styles.errorMessage}>{lastError.message}</Text>
+            <Text style={styles.errorSuggestion}>{lastError.suggestion}</Text>
+            {lastError.technical && (
+              <Text style={styles.errorTechnical} numberOfLines={3} selectable>
+                {lastError.technical}
+              </Text>
+            )}
+          </View>
         )}
       </View>
       <Text style={styles.footnote}>
@@ -181,6 +220,28 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     textAlign: 'center',
     marginTop: 8,
+  },
+  errorCard: {
+    marginTop: 14,
+    padding: 12,
+    backgroundColor: 'rgba(248,113,113,0.08)',
+    borderColor: 'rgba(248,113,113,0.28)',
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  errorCode: { color: Colors.red, fontSize: 12, fontWeight: '800' },
+  errorMessage: { color: Colors.text, fontSize: 12, marginTop: 6 },
+  errorSuggestion: {
+    color: Colors.text2,
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 5,
+  },
+  errorTechnical: {
+    color: Colors.text3,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 7,
   },
   footnote: {
     fontSize: 11,
