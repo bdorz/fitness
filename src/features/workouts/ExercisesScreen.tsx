@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
+  AppState,
   View,
   Text,
   StyleSheet,
@@ -9,7 +10,6 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from 'react-native';
 import {
@@ -32,6 +32,18 @@ import {
   toggleExercise,
   resetAllExercises,
 } from './workoutRepository';
+import {
+  addRestTimerFinishedListener,
+  addRestTimerTickListener,
+  cancelRestTimer,
+  digitsOnly,
+  formatRestDuration,
+  getRestTimerState,
+  requestRestTimerNotificationPermission,
+  restDurationSeconds,
+  splitRestDuration,
+  startRestTimer,
+} from './restTimer';
 
 type RouteProps = RouteProp<RootStackParamList, 'Exercises'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Exercises'>;
@@ -42,6 +54,14 @@ interface ExForm {
   unit: 'kg' | 'lbs';
   sets: string;
   reps: string;
+  restMinutes: string;
+  restSeconds: string;
+}
+
+interface ActiveTimer {
+  timerId: string;
+  exerciseName: string;
+  remainingSeconds: number;
 }
 
 const EMPTY_FORM: ExForm = {
@@ -50,6 +70,8 @@ const EMPTY_FORM: ExForm = {
   unit: 'kg',
   sets: '',
   reps: '',
+  restMinutes: '',
+  restSeconds: '',
 };
 
 export default function ExercisesScreen() {
@@ -63,6 +85,7 @@ export default function ExercisesScreen() {
   const [exModalVisible, setExModalVisible] = useState(false);
   const [exForm, setExForm] = useState<ExForm>(EMPTY_FORM);
   const [editExId, setEditExId] = useState<string | null>(null);
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
 
   const loadData = useCallback(async () => {
     const cats = await getCategories();
@@ -73,8 +96,44 @@ export default function ExercisesScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
+      getRestTimerState()
+        .then(timer => {
+          setActiveTimer(
+            timer.active &&
+              timer.timerId &&
+              timer.exerciseName &&
+              timer.remainingSeconds
+              ? {
+                  timerId: timer.timerId,
+                  exerciseName: timer.exerciseName,
+                  remainingSeconds: timer.remainingSeconds,
+                }
+              : null,
+          );
+        })
+        .catch(() => setActiveTimer(null));
     }, [loadData]),
   );
+
+  useEffect(() => {
+    const tickSubscription = addRestTimerTickListener(event => {
+      setActiveTimer(event);
+    });
+    const finishedSubscription = addRestTimerFinishedListener(event => {
+      setActiveTimer(null);
+      if (AppState.currentState === 'active') {
+        Alert.alert(
+          '組間休息結束',
+          `${event.exerciseName} 可以開始下一組了！`,
+        );
+      }
+    });
+
+    return () => {
+      tickSubscription?.remove();
+      finishedSubscription?.remove();
+    };
+  }, []);
 
   // ── Category ────────────────────────────────────────────────────────
   function openEditCat() {
@@ -107,6 +166,12 @@ export default function ExercisesScreen() {
           text: '刪除',
           style: 'destructive',
           onPress: async () => {
+            if (
+              category.exercises.some(ex => ex.id === activeTimer?.timerId)
+            ) {
+              await cancelRestTimer();
+              setActiveTimer(null);
+            }
             await deleteCategory(category.id);
             navigation.goBack();
           },
@@ -123,6 +188,7 @@ export default function ExercisesScreen() {
   }
 
   function openEditEx(ex: Exercise) {
+    const rest = splitRestDuration(ex.restSeconds);
     setEditExId(ex.id);
     setExForm({
       name: ex.name,
@@ -130,6 +196,8 @@ export default function ExercisesScreen() {
       unit: ex.unit,
       sets: ex.sets,
       reps: ex.reps,
+      restMinutes: rest.minutes,
+      restSeconds: rest.seconds,
     });
     setExModalVisible(true);
   }
@@ -138,7 +206,12 @@ export default function ExercisesScreen() {
     if (!exForm.name.trim()) {
       return;
     }
-    const data = { ...exForm, name: exForm.name.trim() };
+    const { restMinutes, restSeconds, ...exerciseFields } = exForm;
+    const data = {
+      ...exerciseFields,
+      name: exForm.name.trim(),
+      restSeconds: restDurationSeconds(restMinutes, restSeconds),
+    };
     if (editExId) {
       await updateExercise(categoryId, editExId, data);
     } else {
@@ -155,6 +228,10 @@ export default function ExercisesScreen() {
         text: '刪除',
         style: 'destructive',
         onPress: async () => {
+          if (activeTimer?.timerId === ex.id) {
+            await cancelRestTimer();
+            setActiveTimer(null);
+          }
           await deleteExercise(categoryId, ex.id);
           await loadData();
         },
@@ -165,6 +242,40 @@ export default function ExercisesScreen() {
   async function handleToggle(exId: string) {
     await toggleExercise(categoryId, exId);
     await loadData();
+  }
+
+  async function handleTimerPress(ex: Exercise) {
+    if (activeTimer?.timerId === ex.id) {
+      await cancelRestTimer();
+      setActiveTimer(null);
+      return;
+    }
+    if (!ex.restSeconds) {
+      Alert.alert('尚未設定休息時間', '請先編輯動作並設定組間休息時間。');
+      return;
+    }
+
+    try {
+      const notificationsEnabled =
+        await requestRestTimerNotificationPermission();
+      if (!notificationsEnabled) {
+        Alert.alert(
+          '通知權限未開啟',
+          '倒數仍會執行並震動，但系統通知不會顯示。可到 Android 設定中開啟通知。',
+        );
+      }
+      await startRestTimer(ex.id, ex.name, ex.restSeconds);
+      setActiveTimer({
+        timerId: ex.id,
+        exerciseName: ex.name,
+        remainingSeconds: ex.restSeconds,
+      });
+    } catch (error) {
+      Alert.alert(
+        '無法啟動計時',
+        error instanceof Error ? error.message : '請稍後再試。',
+      );
+    }
   }
 
   function confirmReset() {
@@ -212,7 +323,10 @@ export default function ExercisesScreen() {
               {item.name}
             </Text>
           </View>
-          {(!!item.weight || !!item.sets || !!item.reps) && (
+          {(!!item.weight ||
+            !!item.sets ||
+            !!item.reps ||
+            !!item.restSeconds) && (
             <View style={styles.exTags}>
               {!!item.weight && (
                 <View style={[styles.tag, styles.tagWeight]}>
@@ -231,11 +345,42 @@ export default function ExercisesScreen() {
                   <Text style={styles.tagText}>{item.reps} 下</Text>
                 </View>
               )}
+              {!!item.restSeconds && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>
+                    休息 {formatRestDuration(item.restSeconds)}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
 
         <View style={styles.exActions}>
+          <TouchableOpacity
+            style={[
+              styles.timerBtn,
+              activeTimer?.timerId === item.id && styles.timerBtnActive,
+            ]}
+            onPress={() => handleTimerPress(item)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              activeTimer?.timerId === item.id
+                ? `取消 ${item.name} 組間休息倒數`
+                : `開始 ${item.name} 組間休息倒數`
+            }
+          >
+            <Text
+              style={[
+                styles.timerBtnText,
+                activeTimer?.timerId === item.id && styles.timerBtnTextActive,
+              ]}
+            >
+              {activeTimer?.timerId === item.id
+                ? formatRestDuration(activeTimer.remainingSeconds)
+                : '⏱'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.exActionBtn}
             onPress={() => openEditEx(item)}
@@ -334,9 +479,7 @@ export default function ExercisesScreen() {
           activeOpacity={1}
           onPress={() => setCatModalVisible(false)}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
+          <KeyboardAvoidingView>
             <View style={styles.sheet} onStartShouldSetResponder={() => true}>
               <View style={styles.handle} />
               <Text style={styles.sheetTitle}>編輯訓練日</Text>
@@ -382,9 +525,7 @@ export default function ExercisesScreen() {
           activeOpacity={1}
           onPress={() => setExModalVisible(false)}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
+          <KeyboardAvoidingView>
             <ScrollView keyboardShouldPersistTaps="handled">
               <View style={styles.sheet} onStartShouldSetResponder={() => true}>
                 <View style={styles.handle} />
@@ -477,7 +618,47 @@ export default function ExercisesScreen() {
                       placeholder="12"
                       placeholderTextColor={Colors.text3}
                       keyboardType="number-pad"
+                      returnKeyType="next"
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.fieldLabel}>組間休息時間</Text>
+                <View style={styles.fieldRow}>
+                  <View style={styles.fieldHalf}>
+                    <Text style={styles.restUnitLabel}>分鐘</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={exForm.restMinutes}
+                      onChangeText={v =>
+                        setExForm(f => ({
+                          ...f,
+                          restMinutes: digitsOnly(v, 2),
+                        }))
+                      }
+                      placeholder="分"
+                      placeholderTextColor={Colors.text3}
+                      keyboardType="number-pad"
+                      returnKeyType="next"
+                      maxLength={2}
+                    />
+                  </View>
+                  <View style={styles.fieldHalf}>
+                    <Text style={styles.restUnitLabel}>秒數</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={exForm.restSeconds}
+                      onChangeText={v =>
+                        setExForm(f => ({
+                          ...f,
+                          restSeconds: digitsOnly(v, 2),
+                        }))
+                      }
+                      placeholder="秒"
+                      placeholderTextColor={Colors.text3}
+                      keyboardType="number-pad"
                       returnKeyType="done"
+                      maxLength={2}
                       onSubmitEditing={handleSaveEx}
                     />
                   </View>
@@ -589,7 +770,29 @@ const styles = StyleSheet.create({
   tagWeight: { backgroundColor: Colors.accentDim },
   tagText: { fontSize: 12, color: Colors.text2 },
   tagTextWeight: { color: Colors.accent },
-  exActions: { flexDirection: 'column', gap: 2, marginLeft: 6 },
+  exActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: 6,
+  },
+  timerBtn: {
+    minWidth: 34,
+    height: 34,
+    paddingHorizontal: 7,
+    borderRadius: 9,
+    backgroundColor: Colors.card2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerBtnActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  timerBtnText: { fontSize: 16, color: Colors.text2, fontWeight: '800' },
+  timerBtnTextActive: { fontSize: 12, color: Colors.white },
   exActionBtn: { padding: 6 },
   exActionIcon: { fontSize: 16, color: Colors.text2 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -677,6 +880,7 @@ const styles = StyleSheet.create({
   fieldFlex2: { flex: 2 },
   fieldFlex1: { flex: 1 },
   fieldHalf: { flex: 1 },
+  restUnitLabel: { fontSize: 12, color: Colors.text2, marginBottom: 6 },
   unitToggle: {
     flexDirection: 'row',
     backgroundColor: Colors.card3,

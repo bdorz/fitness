@@ -9,7 +9,6 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -198,9 +197,7 @@ export default function WorkoutsScreen() {
           activeOpacity={1}
           onPress={closeModal}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
+          <KeyboardAvoidingView>
             <View style={styles.sheet} onStartShouldSetResponder={() => true}>
               <View style={styles.handle} />
               <Text style={styles.sheetTitle}>

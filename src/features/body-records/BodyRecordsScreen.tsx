@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -121,10 +120,7 @@ export default function BodyRecordsScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.root}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"

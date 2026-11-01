@@ -5,6 +5,7 @@ export interface Exercise {
   unit: 'kg' | 'lbs';
   sets: string;
   reps: string;
+  restSeconds?: number;
   completed: boolean;
 }
 

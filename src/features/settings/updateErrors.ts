@@ -64,8 +64,8 @@ const ERROR_DEFINITIONS: Record<UpdateErrorCode, ErrorDefinition> = {
   },
   'UPD-202': {
     title: '下載連線中斷',
-    message: '下載已自動續傳重試三次，但網路仍然中斷。',
-    suggestion: '請切換較穩定的網路，關閉 VPN／省電模式後再次下載。',
+    message: 'APK 下載連線在交由 Android 系統下載管理員前發生中斷。',
+    suggestion: '請確認網路後重試；若顯示 UPD-206，再查看系統下載通知。',
   },
   'UPD-203': {
     title: '下載服務異常',
@@ -74,13 +74,13 @@ const ERROR_DEFINITIONS: Record<UpdateErrorCode, ErrorDefinition> = {
   },
   'UPD-204': {
     title: '下載檔案不完整',
-    message: '下載後的 APK 大小與 GitHub 記錄不一致。',
-    suggestion: '請確認手機剩餘空間與網路穩定度後重新下載。',
+    message: 'GitHub 提供的 APK 檔案大小資料無效。',
+    suggestion: '請確認最新 GitHub Release 的 APK 附件是否正常。',
   },
   'UPD-205': {
     title: '儲存檔案失敗',
-    message: 'APP 無法在手機快取空間建立或整理 APK。',
-    suggestion: '請釋放手機空間、清除 APP 快取後再試。',
+    message: 'APP 無法在手機儲存空間建立或整理 APK。',
+    suggestion: '請釋放手機空間、清除舊的下載檔案後再試。',
   },
   'UPD-206': {
     title: '系統下載失敗',

@@ -13,11 +13,11 @@ fitness/
 │  │  ├─ body-records/        # 身體紀錄畫面、型別、儲存層
 │  │  ├─ converter/           # 重量換算功能
 │  │  ├─ settings/            # 設定畫面與更新服務
-│  │  └─ workouts/            # 訓練畫面、型別、儲存層
+│  │  └─ workouts/            # 訓練畫面、型別、儲存層與計時器橋接
 │  └─ shared/
 │     └─ theme/               # 跨功能共用的色彩與主題
 ├─ android/                   # React Native Android 原生專案
-├─ ios/                       # React Native iOS 原生專案
+├─ AGENTS.md                  # 專案維護、驗證與發布規則
 ├─ App.tsx                    # App 根元件與最外層 providers
 └─ index.js                   # React Native 進入點
 ```
@@ -27,7 +27,8 @@ fitness/
 - 功能專用的畫面、型別、資料存取放在同一個 `src/features/<feature>` 內。
 - 只有兩個以上功能共用的程式碼才放入 `src/shared`。
 - App 層級的導覽與組裝邏輯放在 `src/app`，不放功能實作。
-- Android、iOS 的產物只存在各平台的 `build` 目錄，不複製到專案根目錄。
+- 組間休息倒數由 `android/app/src/main/java/com/fitnessapp/RestTimerModule.kt` 執行，React Native 畫面透過 `workouts/restTimer.ts` 接收倒數事件；時間到由 Android 原生層震動並發送系統通知。
+- Android 產物只存在平台的 `build` 目錄，不複製到專案根目錄。
 - APK、AAB 與暫存發布目錄一律不納入 Git；正式安裝檔以 GitHub Releases 為準。
 
 ## APK 流程
