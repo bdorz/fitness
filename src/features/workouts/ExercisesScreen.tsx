@@ -21,9 +21,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../app/navigation/types';
 import { Colors } from '../../shared/theme/colors';
-import { Exercise, WorkoutCategory } from './types';
+import { Exercise, ExerciseTemplate, WorkoutCategory } from './types';
 import {
   getCategories,
+  getExerciseTemplates,
   updateCategory,
   deleteCategory,
   addExercise,
@@ -49,6 +50,7 @@ type RouteProps = RouteProp<RootStackParamList, 'Exercises'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Exercises'>;
 
 interface ExForm {
+  templateId: string | null;
   name: string;
   weight: string;
   unit: 'kg' | 'lbs';
@@ -65,6 +67,7 @@ interface ActiveTimer {
 }
 
 const EMPTY_FORM: ExForm = {
+  templateId: null,
   name: '',
   weight: '',
   unit: 'kg',
@@ -80,6 +83,7 @@ export default function ExercisesScreen() {
   const { categoryId } = route.params;
 
   const [category, setCategory] = useState<WorkoutCategory | null>(null);
+  const [templates, setTemplates] = useState<ExerciseTemplate[]>([]);
   const [catModalVisible, setCatModalVisible] = useState(false);
   const [catName, setCatName] = useState('');
   const [exModalVisible, setExModalVisible] = useState(false);
@@ -91,6 +95,7 @@ export default function ExercisesScreen() {
     const cats = await getCategories();
     const found = cats.find(c => c.id === categoryId) ?? null;
     setCategory(found);
+    setTemplates(await getExerciseTemplates());
   }, [categoryId]);
 
   useFocusEffect(
@@ -191,6 +196,7 @@ export default function ExercisesScreen() {
     const rest = splitRestDuration(ex.restSeconds);
     setEditExId(ex.id);
     setExForm({
+      templateId: ex.templateId ?? null,
       name: ex.name,
       weight: ex.weight,
       unit: ex.unit,
@@ -219,6 +225,26 @@ export default function ExercisesScreen() {
     }
     await loadData();
     setExModalVisible(false);
+  }
+
+  function selectTemplate(template: ExerciseTemplate) {
+    setExForm(form => ({
+      ...form,
+      templateId: template.id,
+      name: template.name,
+      weight: template.weight,
+      unit: template.unit,
+    }));
+  }
+
+  function startNewTemplate() {
+    setExForm(form => ({
+      ...form,
+      templateId: null,
+      name: '',
+      weight: '',
+      unit: 'kg',
+    }));
   }
 
   function confirmDeleteEx(ex: Exercise) {
@@ -532,6 +558,43 @@ export default function ExercisesScreen() {
                 <Text style={styles.sheetTitle}>
                   {editExId ? '編輯動作' : '新增動作'}
                 </Text>
+
+                <Text style={styles.fieldLabel}>共用動作卡片</Text>
+                <Text style={styles.fieldHelp}>
+                  選取卡片可帶入名稱、重量與單位。修改這些資料會同步到所有使用此卡片的訓練日；組數、次數與休息時間只影響這筆紀錄。
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.templateCard,
+                    exForm.templateId === null && styles.templateCardActive,
+                  ]}
+                  onPress={startNewTemplate}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.templateTitle}>＋ 建立新動作卡片</Text>
+                </TouchableOpacity>
+                {templates.map(template => (
+                  <TouchableOpacity
+                    key={template.id}
+                    style={[
+                      styles.templateCard,
+                      exForm.templateId === template.id &&
+                        styles.templateCardActive,
+                    ]}
+                    onPress={() => selectTemplate(template)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.templateTitle}>{template.name}</Text>
+                    <Text style={styles.templateDetail}>
+                      {template.weight || '未記重量'}{' '}
+                      {template.weight
+                        ? template.unit === 'lbs'
+                          ? '磅'
+                          : 'kg'
+                        : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
 
                 <Text style={styles.fieldLabel}>動作名稱</Text>
                 <TextInput
@@ -865,6 +928,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: 8,
   },
+  fieldHelp: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: Colors.text2,
+    marginBottom: 10,
+  },
+  templateCard: {
+    backgroundColor: Colors.card3,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 7,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  templateCardActive: { borderColor: Colors.accent },
+  templateTitle: { fontSize: 14, color: Colors.text, fontWeight: '700' },
+  templateDetail: { fontSize: 12, color: Colors.text2 },
   input: {
     backgroundColor: Colors.card3,
     borderRadius: 10,

@@ -14,9 +14,10 @@ Android-only 健身追蹤 App，使用 React Native 與 TypeScript 開發。訓�
 
 - **訓練類別**：新增胸、背、肩、腿、核心、有氧等訓練日，支援新增／編輯／刪除
 - **動作紀錄**：每個類別可新增動作，設定名稱、重量（kg 或 lbs）、組數、次數與組間休息時間
+- **共用動作卡片**：首次輸入動作後可在其他訓練日選用；編輯卡片的名稱、重量與單位會同步到所有關聯紀錄，組數、次數與休息時間各自保存
 - **組間休息計時**：點擊動作旁的碼表按鈕開始倒數，時間到會震動並顯示 Android 系統通知
 - **勾選追蹤**：勾選已完成的動作，進度條顯示完成比例
-- **身體紀錄**：每天記錄體重與腰圍，支援同日更新、歷史編輯及刪除
+- **身體紀錄**：每天記錄體重、腰圍、體脂率、內臟脂肪等級與肌肉量；後三項可留白，支援同日更新、歷史編輯及刪除
 - **近期摘要**：顯示最新體重、最新腰圍與最近 7 筆平均體重
 - **重量換算**：kg ⇌ lbs 雙向即時換算，附常用重量對照表
 - **APP 內更新**：從 GitHub Releases 檢查版本、下載 APK 並啟動安裝
@@ -63,6 +64,7 @@ APP 內更新使用 Android 系統背景下載服務，可在短暫斷線或 APP
 發布前請同步更新以下版本號：
 
 - `package.json` 的 `version`
+- `package-lock.json` 的 `version`（執行 `npm version` 時同步更新）
 - `android/app/build.gradle` 的 `versionCode` 與 `versionName`
 - `src/features/settings/updateService.ts` 的 `CURRENT_VERSION`
 

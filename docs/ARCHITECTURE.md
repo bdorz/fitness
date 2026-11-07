@@ -25,6 +25,8 @@ fitness/
 ## 放置原則
 
 - 功能專用的畫面、型別、資料存取放在同一個 `src/features/<feature>` 內。
+- 訓練資料與共用動作卡片一同存於 AsyncStorage；舊版類別陣列在首次讀取時轉換，僅將名稱、重量及單位完全相同的動作關聯，並保留各紀錄的組數、次數、休息時間與完成狀態。
+- 身體紀錄維持每日一筆；舊紀錄缺少的體脂率、內臟脂肪與肌肉量讀取為空值。
 - 只有兩個以上功能共用的程式碼才放入 `src/shared`。
 - App 層級的導覽與組裝邏輯放在 `src/app`，不放功能實作。
 - 組間休息倒數由 `android/app/src/main/java/com/fitnessapp/RestTimerModule.kt` 執行，React Native 畫面透過 `workouts/restTimer.ts` 接收倒數事件；時間到由 Android 原生層震動並發送系統通知。

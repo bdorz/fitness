@@ -8,7 +8,8 @@ import { hasNewVersion } from '../src/features/settings/updateService';
 
 describe('APP updater', () => {
   it('compares semantic version components', () => {
-    expect(hasNewVersion('v1.0.8')).toBe(true);
+    expect(hasNewVersion('v1.0.9')).toBe(true);
+    expect(hasNewVersion('v1.0.8')).toBe(false);
     expect(hasNewVersion('v1.0.7')).toBe(false);
     expect(hasNewVersion('v1.0.6')).toBe(false);
     expect(hasNewVersion('v1.0.5')).toBe(false);

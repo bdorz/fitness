@@ -44,6 +44,9 @@ export default function BodyRecordsScreen() {
   const [date, setDate] = useState(localDateString());
   const [weight, setWeight] = useState('');
   const [waist, setWaist] = useState('');
+  const [bodyFat, setBodyFat] = useState('');
+  const [visceralFat, setVisceralFat] = useState('');
+  const [muscleMass, setMuscleMass] = useState('');
 
   const load = useCallback(async () => setRecords(await getBodyRecords()), []);
   useFocusEffect(
@@ -72,11 +75,19 @@ export default function BodyRecordsScreen() {
         ? existing.waist.toFixed(1)
         : '',
     );
+    setBodyFat(existing?.bodyFat?.toString() ?? '');
+    setVisceralFat(existing?.visceralFat?.toString() ?? '');
+    setMuscleMass(existing?.muscleMass?.toString() ?? '');
   }
 
   async function handleSave() {
     const parsedWeight = Number(weight);
     const parsedWaist = waist.trim() === '' ? null : Number(waist);
+    const parsedBodyFat = bodyFat.trim() === '' ? null : Number(bodyFat);
+    const parsedVisceralFat =
+      visceralFat.trim() === '' ? null : Number(visceralFat);
+    const parsedMuscleMass =
+      muscleMass.trim() === '' ? null : Number(muscleMass);
     const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
     if (!validDate || !Number.isFinite(parsedWeight) || parsedWeight <= 0) {
       Alert.alert('資料不完整', '請輸入 YYYY-MM-DD 格式日期與正確體重');
@@ -89,8 +100,28 @@ export default function BodyRecordsScreen() {
       Alert.alert('腰圍格式錯誤', '請輸入正確腰圍，或留白不記錄');
       return;
     }
+    if (
+      (parsedBodyFat !== null &&
+        (!Number.isFinite(parsedBodyFat) ||
+          parsedBodyFat <= 0 ||
+          parsedBodyFat > 100)) ||
+      (parsedVisceralFat !== null &&
+        (!Number.isFinite(parsedVisceralFat) || parsedVisceralFat <= 0)) ||
+      (parsedMuscleMass !== null &&
+        (!Number.isFinite(parsedMuscleMass) || parsedMuscleMass <= 0))
+    ) {
+      Alert.alert('身體數據格式錯誤', '請輸入正確的正數；體脂率不可超過 100%。');
+      return;
+    }
     const savedWeight = roundToTwoDecimals(parsedWeight);
-    await saveBodyRecord({ date, weight: savedWeight, waist: parsedWaist });
+    await saveBodyRecord({
+      date,
+      weight: savedWeight,
+      waist: parsedWaist,
+      bodyFat: parsedBodyFat,
+      visceralFat: parsedVisceralFat,
+      muscleMass: parsedMuscleMass,
+    });
     setWeight(savedWeight.toFixed(2));
     await load();
     Alert.alert(
@@ -112,6 +143,9 @@ export default function BodyRecordsScreen() {
           if (date === record.date) {
             setWeight('');
             setWaist('');
+            setBodyFat('');
+            setVisceralFat('');
+            setMuscleMass('');
           }
           await load();
         },
@@ -127,7 +161,7 @@ export default function BodyRecordsScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.title}>身體紀錄</Text>
-          <Text style={styles.subtitle}>每天一筆，追蹤體重與腰圍變化</Text>
+          <Text style={styles.subtitle}>每天一筆，追蹤體重與身體組成變化</Text>
         </View>
 
         <View style={styles.summaryRow}>
@@ -190,6 +224,39 @@ export default function BodyRecordsScreen() {
               />
             </View>
           </View>
+          <View style={styles.inputRow}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>體脂率（%）</Text>
+              <TextInput
+                style={styles.input}
+                value={bodyFat}
+                onChangeText={setBodyFat}
+                placeholder="例如 20.5"
+                placeholderTextColor={Colors.text3}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>內臟脂肪（等級）</Text>
+              <TextInput
+                style={styles.input}
+                value={visceralFat}
+                onChangeText={setVisceralFat}
+                placeholder="例如 8"
+                placeholderTextColor={Colors.text3}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+          <Text style={styles.label}>肌肉量（kg）</Text>
+          <TextInput
+            style={styles.input}
+            value={muscleMass}
+            onChangeText={setMuscleMass}
+            placeholder="例如 30.5"
+            placeholderTextColor={Colors.text3}
+            keyboardType="decimal-pad"
+          />
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveText}>
               {records.some(record => record.date === date)
@@ -229,6 +296,19 @@ export default function BodyRecordsScreen() {
                       ? `${record.waist.toFixed(1)} cm`
                       : '未記腰圍'}
                   </Text>
+                  {record.bodyFat !== null && (
+                    <Text style={styles.recordWaist}>體脂 {record.bodyFat}%</Text>
+                  )}
+                  {record.visceralFat !== null && (
+                    <Text style={styles.recordWaist}>
+                      內臟脂肪 {record.visceralFat}
+                    </Text>
+                  )}
+                  {record.muscleMass !== null && (
+                    <Text style={styles.recordWaist}>
+                      肌肉量 {record.muscleMass} kg
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
             ))

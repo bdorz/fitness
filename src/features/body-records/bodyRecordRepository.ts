@@ -3,6 +3,15 @@ import { BodyRecord } from './types';
 
 const BODY_RECORDS_KEY = '@fitness_body_records';
 
+function optionalNumber(value: unknown): number | null {
+  return value !== null &&
+    value !== undefined &&
+    value !== '' &&
+    Number.isFinite(Number(value))
+    ? Number(value)
+    : null;
+}
+
 export async function getBodyRecords(): Promise<BodyRecord[]> {
   try {
     const data = await AsyncStorage.getItem(BODY_RECORDS_KEY);
@@ -19,12 +28,10 @@ export async function getBodyRecords(): Promise<BodyRecord[]> {
       .map(record => ({
         date: record.date,
         weight: Number(record.weight),
-        waist:
-          record.waist !== null &&
-          record.waist !== undefined &&
-          Number.isFinite(Number(record.waist))
-            ? Number(record.waist)
-            : null,
+        waist: optionalNumber(record.waist),
+        bodyFat: optionalNumber(record.bodyFat),
+        visceralFat: optionalNumber(record.visceralFat),
+        muscleMass: optionalNumber(record.muscleMass),
       }))
       .sort((a, b) => b.date.localeCompare(a.date));
   } catch {
