@@ -8,6 +8,7 @@ import {
   addExercise,
   getCategories,
   getExerciseTemplates,
+  mergeExerciseTemplates,
   updateExercise,
 } from '../src/features/workouts/workoutRepository';
 
@@ -172,4 +173,66 @@ it('reuses a card on another day with independent sets, reps, and rest', async (
     reps: '12',
     restSeconds: 60,
   });
+});
+
+it('keeps different old weights separate until the user merges their cards', async () => {
+  storage.set(
+    '@fitness_categories',
+    JSON.stringify([
+      {
+        id: 'day-a',
+        name: '胸 A',
+        createdAt: '2026-11-01',
+        exercises: [
+          {
+            id: 'a',
+            name: '史密斯上斜胸推',
+            weight: '40',
+            unit: 'kg',
+            sets: '4',
+            reps: '10',
+            restSeconds: 90,
+            completed: true,
+          },
+          {
+            id: 'b',
+            name: '史密斯上斜胸推',
+            weight: '45',
+            unit: 'kg',
+            sets: '3',
+            reps: '8',
+            restSeconds: 120,
+            completed: false,
+          },
+        ],
+      },
+    ]),
+  );
+  const templates = await getExerciseTemplates();
+  expect(templates).toHaveLength(2);
+  expect((await getCategories())[0].exercises.map(exercise => exercise.weight)).toEqual([
+    '40',
+    '45',
+  ]);
+
+  await mergeExerciseTemplates(templates[1].id, templates[0].id);
+  expect(await getExerciseTemplates()).toHaveLength(1);
+  expect((await getCategories())[0].exercises).toMatchObject([
+    {
+      templateId: templates[0].id,
+      weight: '40',
+      sets: '4',
+      reps: '10',
+      restSeconds: 90,
+      completed: true,
+    },
+    {
+      templateId: templates[0].id,
+      weight: '40',
+      sets: '3',
+      reps: '8',
+      restSeconds: 120,
+      completed: false,
+    },
+  ]);
 });

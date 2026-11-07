@@ -25,6 +25,7 @@ import { Exercise, ExerciseTemplate, WorkoutCategory } from './types';
 import {
   getCategories,
   getExerciseTemplates,
+  mergeExerciseTemplates,
   updateCategory,
   deleteCategory,
   addExercise,
@@ -77,6 +78,12 @@ const EMPTY_FORM: ExForm = {
   restSeconds: '',
 };
 
+function templateLabel(template: ExerciseTemplate): string {
+  return `${template.name}・${template.weight || '未記重量'}${
+    template.weight ? (template.unit === 'lbs' ? ' 磅' : ' kg') : ''
+  }`;
+}
+
 export default function ExercisesScreen() {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavProp>();
@@ -84,6 +91,8 @@ export default function ExercisesScreen() {
 
   const [category, setCategory] = useState<WorkoutCategory | null>(null);
   const [templates, setTemplates] = useState<ExerciseTemplate[]>([]);
+  const [mergeModalVisible, setMergeModalVisible] = useState(false);
+  const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
   const [catModalVisible, setCatModalVisible] = useState(false);
   const [catName, setCatName] = useState('');
   const [exModalVisible, setExModalVisible] = useState(false);
@@ -245,6 +254,46 @@ export default function ExercisesScreen() {
       weight: '',
       unit: 'kg',
     }));
+  }
+
+  async function confirmMerge(target: ExerciseTemplate) {
+    const source = templates.find(item => item.id === mergeSourceId);
+    if (!source || source.id === target.id) {
+      return;
+    }
+    const categories = await getCategories();
+    const count = categories.reduce(
+      (sum, item) =>
+        sum +
+        item.exercises.filter(exercise => exercise.templateId === source.id)
+          .length,
+      0,
+    );
+    Alert.alert(
+      '合併動作卡片',
+      `將「${templateLabel(source)}」併入「${templateLabel(
+        target,
+      )}」？\n${count} 筆既有動作會改用保留卡片的名稱、重量與單位；各筆的組數、次數、休息時間及完成狀態不變。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '合併',
+          onPress: async () => {
+            try {
+              await mergeExerciseTemplates(source.id, target.id);
+              await loadData();
+              setMergeSourceId(null);
+              setMergeModalVisible(false);
+            } catch (error) {
+              Alert.alert(
+                '合併失敗',
+                error instanceof Error ? error.message : '請稍後再試。',
+              );
+            }
+          },
+        },
+      ],
+    );
   }
 
   function confirmDeleteEx(ex: Exercise) {
@@ -437,6 +486,16 @@ export default function ExercisesScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {category.name}
         </Text>
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => {
+            setMergeSourceId(null);
+            setMergeModalVisible(true);
+          }}
+          accessibilityRole="button"
+        >
+          <Text style={styles.manageText}>整理卡片</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.headerBtn} onPress={openEditCat}>
           <Text style={styles.headerBtnIcon}>✏</Text>
         </TouchableOpacity>
@@ -746,6 +805,77 @@ export default function ExercisesScreen() {
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
+
+      {/* Merge existing cards without changing local training fields. */}
+      <Modal
+        visible={mergeModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMergeModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setMergeModalVisible(false)}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.mergeContent}
+          >
+            <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+              <View style={styles.handle} />
+              <Text style={styles.sheetTitle}>整理既有動作卡片</Text>
+              <Text style={styles.fieldHelp}>
+                升級時，名稱、重量與單位相同的舊動作會自動共用卡片。其他舊卡片可在此手動合併；請先選要合併的卡片，再選保留的卡片。
+              </Text>
+              <Text style={styles.fieldLabel}>要合併的卡片</Text>
+              {templates.map(template => (
+                <TouchableOpacity
+                  key={template.id}
+                  style={[
+                    styles.templateCard,
+                    mergeSourceId === template.id && styles.templateCardActive,
+                  ]}
+                  onPress={() => setMergeSourceId(template.id)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.templateTitle}>
+                    {templateLabel(template)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {templates.length === 0 && (
+                <Text style={styles.fieldHelp}>目前沒有動作卡片。</Text>
+              )}
+              {mergeSourceId && (
+                <>
+                  <Text style={styles.fieldLabel}>選擇保留的卡片</Text>
+                  {templates
+                    .filter(template => template.id !== mergeSourceId)
+                    .map(template => (
+                      <TouchableOpacity
+                        key={template.id}
+                        style={styles.templateCard}
+                        onPress={() => confirmMerge(template)}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.templateTitle}>
+                          {templateLabel(template)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                </>
+              )}
+              <TouchableOpacity
+                style={[styles.btn, styles.btnSec]}
+                onPress={() => setMergeModalVisible(false)}
+              >
+                <Text style={styles.btnSecText}>關閉</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -769,6 +899,8 @@ const styles = StyleSheet.create({
   },
   headerBtn: { padding: 8 },
   headerBtnIcon: { fontSize: 18, color: Colors.text2 },
+  manageText: { fontSize: 13, color: Colors.accent, fontWeight: '700' },
+  mergeContent: { flexGrow: 1, justifyContent: 'flex-end' },
   progSection: { paddingHorizontal: 16, paddingBottom: 14 },
   progBg: {
     height: 8,

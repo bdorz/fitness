@@ -83,6 +83,38 @@ export async function getExerciseTemplates(): Promise<ExerciseTemplate[]> {
   return (await readStore()).templates;
 }
 
+export async function mergeExerciseTemplates(
+  sourceId: string,
+  targetId: string,
+): Promise<void> {
+  if (sourceId === targetId) {
+    return;
+  }
+  const store = await readStore();
+  const source = store.templates.find(item => item.id === sourceId);
+  const target = store.templates.find(item => item.id === targetId);
+  if (!source || !target) {
+    throw new Error('找不到要合併的動作卡片');
+  }
+  await save({
+    templates: store.templates.filter(item => item.id !== sourceId),
+    categories: store.categories.map(category => ({
+      ...category,
+      exercises: category.exercises.map(exercise =>
+        exercise.templateId === sourceId
+          ? {
+              ...exercise,
+              templateId: targetId,
+              name: target.name,
+              weight: target.weight,
+              unit: target.unit,
+            }
+          : exercise,
+      ),
+    })),
+  });
+}
+
 export async function addCategory(name: string): Promise<WorkoutCategory> {
   const store = await readStore();
   const cat: WorkoutCategory = {
