@@ -26,6 +26,7 @@ import {
   getCategories,
   getExerciseTemplates,
   mergeExerciseTemplates,
+  deleteExerciseTemplate,
   updateCategory,
   deleteCategory,
   addExercise,
@@ -51,7 +52,7 @@ type RouteProps = RouteProp<RootStackParamList, 'Exercises'>;
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Exercises'>;
 
 interface ExForm {
-  templateId: string | null;
+  templateId: string | null | undefined;
   name: string;
   weight: string;
   unit: 'kg' | 'lbs';
@@ -93,6 +94,7 @@ export default function ExercisesScreen() {
   const [templates, setTemplates] = useState<ExerciseTemplate[]>([]);
   const [mergeModalVisible, setMergeModalVisible] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
+  const [templateSearch, setTemplateSearch] = useState('');
   const [catModalVisible, setCatModalVisible] = useState(false);
   const [catName, setCatName] = useState('');
   const [exModalVisible, setExModalVisible] = useState(false);
@@ -198,14 +200,16 @@ export default function ExercisesScreen() {
   function openAddEx() {
     setEditExId(null);
     setExForm(EMPTY_FORM);
+    setTemplateSearch('');
     setExModalVisible(true);
   }
 
   function openEditEx(ex: Exercise) {
     const rest = splitRestDuration(ex.restSeconds);
     setEditExId(ex.id);
+    setTemplateSearch('');
     setExForm({
-      templateId: ex.templateId ?? null,
+      templateId: ex.templateId,
       name: ex.name,
       weight: ex.weight,
       unit: ex.unit,
@@ -227,13 +231,20 @@ export default function ExercisesScreen() {
       name: exForm.name.trim(),
       restSeconds: restDurationSeconds(restMinutes, restSeconds),
     };
-    if (editExId) {
-      await updateExercise(categoryId, editExId, data);
-    } else {
-      await addExercise(categoryId, data);
+    try {
+      if (editExId) {
+        await updateExercise(categoryId, editExId, data);
+      } else {
+        await addExercise(categoryId, data);
+      }
+      await loadData();
+      setExModalVisible(false);
+    } catch (error) {
+      Alert.alert(
+        '無法儲存動作',
+        error instanceof Error ? error.message : '請稍後再試。',
+      );
     }
-    await loadData();
-    setExModalVisible(false);
   }
 
   function selectTemplate(template: ExerciseTemplate) {
@@ -287,6 +298,42 @@ export default function ExercisesScreen() {
             } catch (error) {
               Alert.alert(
                 '合併失敗',
+                error instanceof Error ? error.message : '請稍後再試。',
+              );
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  async function confirmDeleteTemplate(template: ExerciseTemplate) {
+    const categories = await getCategories();
+    const count = categories.reduce(
+      (sum, item) =>
+        sum +
+        item.exercises.filter(exercise => exercise.templateId === template.id)
+          .length,
+      0,
+    );
+    Alert.alert(
+      '刪除動作卡片',
+      `刪除「${templateLabel(template)}」？${count} 筆已建立的訓練動作會保留原名稱、重量、組數、次數與休息時間，但不再與這張卡片連動。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '刪除卡片',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteExerciseTemplate(template.id);
+              await loadData();
+              if (mergeSourceId === template.id) {
+                setMergeSourceId(null);
+              }
+            } catch (error) {
+              Alert.alert(
+                '刪除失敗',
                 error instanceof Error ? error.message : '請稍後再試。',
               );
             }
@@ -622,6 +669,19 @@ export default function ExercisesScreen() {
                 <Text style={styles.fieldHelp}>
                   選取卡片可帶入名稱、重量與單位。修改這些資料會同步到所有使用此卡片的訓練日；組數、次數與休息時間只影響這筆紀錄。
                 </Text>
+                {exForm.templateId === undefined && (
+                  <Text style={styles.fieldHelp}>
+                    這筆紀錄目前沒有連動卡片；可直接編輯原紀錄，或選取卡片重新關聯。
+                  </Text>
+                )}
+                <TextInput
+                  style={styles.input}
+                  value={templateSearch}
+                  onChangeText={setTemplateSearch}
+                  placeholder="搜尋名稱或重量"
+                  placeholderTextColor={Colors.text3}
+                  accessibilityLabel="搜尋動作卡片"
+                />
                 <TouchableOpacity
                   style={[
                     styles.templateCard,
@@ -632,28 +692,40 @@ export default function ExercisesScreen() {
                 >
                   <Text style={styles.templateTitle}>＋ 建立新動作卡片</Text>
                 </TouchableOpacity>
-                {templates.map(template => (
-                  <TouchableOpacity
-                    key={template.id}
-                    style={[
-                      styles.templateCard,
-                      exForm.templateId === template.id &&
-                        styles.templateCardActive,
-                    ]}
-                    onPress={() => selectTemplate(template)}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.templateTitle}>{template.name}</Text>
-                    <Text style={styles.templateDetail}>
-                      {template.weight || '未記重量'}{' '}
-                      {template.weight
-                        ? template.unit === 'lbs'
-                          ? '磅'
-                          : 'kg'
-                        : ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {templates
+                  .filter(template =>
+                    templateLabel(template)
+                      .normalize('NFKC')
+                      .toLocaleLowerCase()
+                      .includes(
+                        templateSearch
+                          .normalize('NFKC')
+                          .trim()
+                          .toLocaleLowerCase(),
+                      ),
+                  )
+                  .map(template => (
+                    <TouchableOpacity
+                      key={template.id}
+                      style={[
+                        styles.templateCard,
+                        exForm.templateId === template.id &&
+                          styles.templateCardActive,
+                      ]}
+                      onPress={() => selectTemplate(template)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.templateTitle}>{template.name}</Text>
+                      <Text style={styles.templateDetail}>
+                        {template.weight || '未記重量'}{' '}
+                        {template.weight
+                          ? template.unit === 'lbs'
+                            ? '磅'
+                            : 'kg'
+                          : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
 
                 <Text style={styles.fieldLabel}>動作名稱</Text>
                 <TextInput
@@ -826,23 +898,33 @@ export default function ExercisesScreen() {
               <View style={styles.handle} />
               <Text style={styles.sheetTitle}>整理既有動作卡片</Text>
               <Text style={styles.fieldHelp}>
-                升級時，名稱、重量與單位相同的舊動作會自動共用卡片。其他舊卡片可在此手動合併；請先選要合併的卡片，再選保留的卡片。
+                升級時，名稱、重量與單位相同的舊動作會自動共用卡片。同名但重量不同的舊卡片可手動合併，或刪除多餘卡片。刪除卡片不會刪除已建立的訓練動作。
               </Text>
               <Text style={styles.fieldLabel}>要合併的卡片</Text>
               {templates.map(template => (
-                <TouchableOpacity
-                  key={template.id}
-                  style={[
-                    styles.templateCard,
-                    mergeSourceId === template.id && styles.templateCardActive,
-                  ]}
-                  onPress={() => setMergeSourceId(template.id)}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.templateTitle}>
-                    {templateLabel(template)}
-                  </Text>
-                </TouchableOpacity>
+                <View key={template.id} style={styles.templateRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.templateCard,
+                      styles.templateRowCard,
+                      mergeSourceId === template.id && styles.templateCardActive,
+                    ]}
+                    onPress={() => setMergeSourceId(template.id)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.templateTitle}>
+                      {templateLabel(template)}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.templateDelete}
+                    onPress={() => confirmDeleteTemplate(template)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`刪除 ${templateLabel(template)} 卡片`}
+                  >
+                    <Text style={styles.templateDeleteText}>刪除</Text>
+                  </TouchableOpacity>
+                </View>
               ))}
               {templates.length === 0 && (
                 <Text style={styles.fieldHelp}>目前沒有動作卡片。</Text>
@@ -1079,6 +1161,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   templateCardActive: { borderColor: Colors.accent },
+  templateRow: { flexDirection: 'row', gap: 8 },
+  templateRowCard: { flex: 1 },
+  templateDelete: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    marginBottom: 7,
+    borderRadius: 10,
+    backgroundColor: Colors.card3,
+  },
+  templateDeleteText: { color: Colors.red, fontSize: 12, fontWeight: '700' },
   templateTitle: { fontSize: 14, color: Colors.text, fontWeight: '700' },
   templateDetail: { fontSize: 12, color: Colors.text2 },
   input: {

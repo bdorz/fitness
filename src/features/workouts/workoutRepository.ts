@@ -17,13 +17,16 @@ function genId(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function nameKey(name: string): string {
+  return name.normalize('NFKC').replace(/\s+/g, '').toLocaleLowerCase();
+}
+
 function sameTemplate(
   template: ExerciseTemplate,
   fields: Pick<ExerciseTemplate, 'name' | 'weight' | 'unit'>,
 ): boolean {
   return (
-    template.name.trim().toLocaleLowerCase() ===
-      fields.name.trim().toLocaleLowerCase() &&
+    nameKey(template.name) === nameKey(fields.name) &&
     template.weight.trim() === fields.weight.trim() &&
     template.unit === fields.unit
   );
@@ -115,6 +118,24 @@ export async function mergeExerciseTemplates(
   });
 }
 
+export async function deleteExerciseTemplate(templateId: string): Promise<void> {
+  const store = await readStore();
+  if (!store.templates.some(item => item.id === templateId)) {
+    throw new Error('找不到要刪除的動作卡片');
+  }
+  await save({
+    templates: store.templates.filter(item => item.id !== templateId),
+    categories: store.categories.map(category => ({
+      ...category,
+      exercises: category.exercises.map(exercise =>
+        exercise.templateId === templateId
+          ? { ...exercise, templateId: undefined }
+          : exercise,
+      ),
+    })),
+  });
+}
+
 export async function addCategory(name: string): Promise<WorkoutCategory> {
   const store = await readStore();
   const cat: WorkoutCategory = {
@@ -154,11 +175,53 @@ async function writeExercise(
     weight: draft.weight.trim(),
     unit: draft.unit,
   };
+  if (exId && draft.templateId === undefined) {
+    const existing = store.categories
+      .find(category => category.id === catId)
+      ?.exercises.find(exercise => exercise.id === exId);
+    if (!existing || existing.templateId) {
+      throw new Error('原本的訓練動作已變更，請重新開啟編輯');
+    }
+    await save({
+      ...store,
+      categories: store.categories.map(category =>
+        category.id === catId
+          ? {
+              ...category,
+              exercises: category.exercises.map(exercise =>
+                exercise.id === exId
+                  ? {
+                      ...exercise,
+                      ...shared,
+                      sets: draft.sets,
+                      reps: draft.reps,
+                      restSeconds: draft.restSeconds,
+                    }
+                  : exercise,
+              ),
+            }
+          : category,
+      ),
+    });
+    return;
+  }
   let template = draft.templateId
     ? store.templates.find(item => item.id === draft.templateId)
     : null;
+  if (draft.templateId && !template) {
+    throw new Error('原本的動作卡片已不存在，請重新選擇');
+  }
   if (!template) {
     template = store.templates.find(item => sameTemplate(item, shared));
+  }
+  const duplicateName = store.templates.find(
+    item => item.id !== template?.id && nameKey(item.name) === nameKey(shared.name),
+  );
+  if (
+    duplicateName &&
+    (!template || nameKey(template.name) !== nameKey(shared.name))
+  ) {
+    throw new Error('已有同名動作卡片，請從卡片清單選用或到「整理卡片」合併');
   }
   if (template) {
     const templateId = template.id;

@@ -6,6 +6,7 @@ import {
 import {
   addCategory,
   addExercise,
+  deleteExerciseTemplate,
   getCategories,
   getExerciseTemplates,
   mergeExerciseTemplates,
@@ -235,4 +236,73 @@ it('keeps different old weights separate until the user merges their cards', asy
       completed: false,
     },
   ]);
+});
+
+it('prevents new duplicate names even when the weight or spacing differs', async () => {
+  const day = await addCategory('胸');
+  await addExercise(day.id, {
+    templateId: null,
+    name: '史密斯 上斜胸推',
+    weight: '40',
+    unit: 'kg',
+    sets: '4',
+    reps: '10',
+    restSeconds: 90,
+  });
+  await expect(
+    addExercise(day.id, {
+      templateId: null,
+      name: '  史密斯上斜胸推  ',
+      weight: '45',
+      unit: 'kg',
+      sets: '3',
+      reps: '8',
+      restSeconds: 60,
+    }),
+  ).rejects.toThrow('已有同名動作卡片');
+  expect(await getExerciseTemplates()).toHaveLength(1);
+  expect((await getCategories())[0].exercises).toHaveLength(1);
+});
+
+it('deletes a card without deleting or changing its existing exercises', async () => {
+  const day = await addCategory('胸');
+  await addExercise(day.id, {
+    templateId: null,
+    name: '史密斯上斜胸推',
+    weight: '40',
+    unit: 'kg',
+    sets: '4',
+    reps: '10',
+    restSeconds: 90,
+  });
+  const [template] = await getExerciseTemplates();
+  await deleteExerciseTemplate(template.id);
+  expect(await getExerciseTemplates()).toEqual([]);
+  expect((await getCategories())[0].exercises[0]).toMatchObject({
+    name: '史密斯上斜胸推',
+    weight: '40',
+    unit: 'kg',
+    sets: '4',
+    reps: '10',
+    restSeconds: 90,
+    completed: false,
+  });
+  expect((await getCategories())[0].exercises[0].templateId).toBeUndefined();
+  const exerciseId = (await getCategories())[0].exercises[0].id;
+  await updateExercise(day.id, exerciseId, {
+    templateId: undefined,
+    name: '史密斯上斜胸推',
+    weight: '42',
+    unit: 'kg',
+    sets: '5',
+    reps: '8',
+    restSeconds: 75,
+  });
+  expect(await getExerciseTemplates()).toEqual([]);
+  expect((await getCategories())[0].exercises[0]).toMatchObject({
+    weight: '42',
+    sets: '5',
+    reps: '8',
+    restSeconds: 75,
+  });
 });

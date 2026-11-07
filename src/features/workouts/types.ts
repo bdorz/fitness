@@ -20,7 +20,7 @@ export interface ExerciseTemplate {
 export type ExerciseDraft = Pick<
   Exercise,
   'name' | 'weight' | 'unit' | 'sets' | 'reps' | 'restSeconds'
-> & { templateId: string | null };
+> & { templateId: string | null | undefined };
 
 export interface WorkoutCategory {
   id: string;
